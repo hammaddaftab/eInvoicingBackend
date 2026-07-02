@@ -1,0 +1,36 @@
+{
+  "name": "einvoicebackend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "typeorm": "node -r dotenv/config -r ts-node/register ./node_modules/typeorm/cli.js",
+    "migration:generate": "npm run typeorm -- migration:generate -d src/data-source.ts",
+    "migration:run": "npm run typeorm -- migration:run -d src/data-source.ts",
+    "migration:revert": "npm run typeorm -- migration:revert -d src/data-source.ts",
+    "db:dump-schema": "npx dotenv -- pg_dump --schema-only --no-owner --no-privileges > schema.sql",
+    "db:generate-dbml": "npx -y -p @dbml/cli sql2dbml schema.sql --postgres -o schema.dbml",
+    "db:sync-docs": "npm run db:dump-schema && npm run db:generate-dbml"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "pg": "^8.22.0",
+    "typeorm": "^1.0.0"
+  },
+  "devDependencies": {
+    "@dbml/cli": "^9.0.0-alpha.2",
+    "@types/node": "^26.0.1",
+    "dotenv-cli": "^11.0.0",
+    "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    /* ─── Language & Environment ───────────────────────────────────────────── */
+    "target": "ES2022",                        // Node 20+ supports ES2022 natively; minimal transpilation
+    "lib": ["ES2022"],                         // No DOM types — this is a pure Node.js backend
+    "types": ["node"],                         // Explicitly load @types/node; resolves TypeORM 'stream'/'fs' errors
+
+    /* ─── Module System ─────────────────────────────────────────────────────  */
+    "module": "Node16",                        // Node16: matches moduleResolution; CJS since no "type":"module" in package.json
+    "moduleResolution": "Node16",              // Node16: correct CJS resolution; compatible with ts-node require-hook
+
+    /* ─── Output ────────────────────────────────────────────────────────────  */
+    "rootDir": "./src",                        // Source root
+    "outDir": "./dist",                        // Compiled output
+    "sourceMap": true,                         // Source maps for debugging
+
+    /* ─── TypeORM Decorator Support (mandatory) ─────────────────────────────  */
+    "experimentalDecorators": true,            // Enable @Entity, @Column, @ManyToOne, etc.
+    "emitDecoratorMetadata": true,             // Emit type metadata for reflect-metadata
+
+    /* ─── Strict Type Checking ──────────────────────────────────────────────  */
+    "strict": true,                            // Enable all strict checks
+    "strictPropertyInitialization": false,     // Disabled: TypeORM populates properties at runtime, not in constructor
+
+    /* ─── Interoperability & Quality ────────────────────────────────────────  */
+    "esModuleInterop": true,                   // Allows default imports from CJS modules (e.g. import express from 'express')
+    "allowSyntheticDefaultImports": true,      // Companion to esModuleInterop
+    "resolveJsonModule": true,                 // Allow importing .json files
+    "skipLibCheck": true,                      // Skip type-checking of node_modules .d.ts files (fixes TypeORM internal errors)
+    "forceConsistentCasingInFileNames": true   // Prevent casing bugs on case-insensitive file systems
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "ts-node": {
+    "esm": false,                              // Force CommonJS mode in ts-node (fixes __dirname in TypeORM CLI)
+    "transpileOnly": true                      // Skip type-checking for faster CLI execution
+  }
+}

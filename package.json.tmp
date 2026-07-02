@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "test-args": "sh -c 'echo \"arg is src/migrations/$1\"' _"
+  }
+}

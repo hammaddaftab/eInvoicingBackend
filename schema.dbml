@@ -1,0 +1,119 @@
+// ─── Enums ────────────────────────────────────────
+
+Enum emirates_enum {
+  ABU_DHABI
+  DUBAI
+  SHARJAH
+  AJMAN
+  UMM_AL_QUWAIN
+  RAS_AL_KHAIMAH
+  FUJAIRAH
+}
+
+Enum permissions_enum {
+  READ
+  WRITE
+  DELETE
+  ALL
+}
+
+Enum otp_channel {
+  phone
+  email
+}
+
+Enum otp_purpose {
+  signup
+  login
+  reset_password
+  update_phone
+  update_email
+}
+
+// ─── Business ───────────────────────────────────────
+
+Table industry {
+  id smallint [pk, increment, note: 'GENERATED ALWAYS AS IDENTITY']
+  name varchar(100) [not null, unique]
+  code varchar(10) [not null, unique]
+}
+
+Table business {
+  id integer [pk, increment, note: 'GENERATED ALWAYS AS IDENTITY']
+  name varchar(255) [not null]
+  vat_number char(15) [unique]
+  tl_number varchar(50) [unique]
+  industry_id smallint [not null, ref: > industry.id]
+  emirate emirates_enum [not null]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+// ─── Users ────────────────────────────────────────
+
+Table users {
+  id integer [pk, increment, note: 'GENERATED ALWAYS AS IDENTITY']
+  business_id integer [not null, ref: > business.id] 
+  created_by integer [ref: > users.id, note: 'NULL represents owner']               
+  name varchar(100) [not null]
+  email varchar(255) [not null, unique]
+  phone varchar(15) [not null, unique]
+  password char(60) [not null]
+  is_phone_verified boolean [not null, default: false]
+  is_email_verified boolean [not null, default: false]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+// ─── RBAC ─────────────────────────────────────────
+
+Table roles {
+  id smallint [pk, increment, note: 'GENERATED ALWAYS AS IDENTITY']
+  business_id integer [not null, ref: > business.id]
+  name varchar(50) [not null, unique]                
+  description varchar(255)
+
+  indexes {
+    (business_id, name) [unique]
+  }
+}
+
+Table user_roles {
+  user_id integer [not null, ref: > users.id]
+  role_id smallint [not null, ref: > roles.id]
+  assigned_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (user_id, role_id) [pk]
+  }
+}
+
+Table features {
+  id smallint [pk, increment, note: 'GENERATED ALWAYS AS IDENTITY']
+  name varchar(50) [not null, unique]
+  description varchar(255)
+}
+
+Table roles_permissions {
+  role_id smallint [not null, ref: > roles.id]
+  feature_id smallint [not null, ref: > features.id]
+  permission permissions_enum [not null]
+
+  indexes {
+    (role_id, feature_id) [pk]
+  }
+}
+
+// ─── OTP ──────────────────────────────────────────
+
+Table otp_verifications {
+  id integer [pk, increment, note: 'GENERATED ALWAYS AS IDENTITY']
+  user_id integer [not null, ref: > users.id]
+  channel otp_channel [not null]
+  destination varchar(255) [not null]
+  code_hash char(60) [not null]
+  purpose otp_purpose [not null]
+  expires_at timestamptz [not null]
+  attempts smallint [not null, default: 0]
+  max_attempts smallint [not null, default: 3]
+  verified_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+}
