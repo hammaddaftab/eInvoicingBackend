@@ -10,10 +10,10 @@ export class Business {
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Column({ type: 'char', length: 15, unique: true, nullable: true })
+  @Column({ type: 'char', length: 15, unique: true })
   vat_number: string;
 
-  @Column({ type: 'varchar', length: 50, unique: true, nullable: true })
+  @Column({ type: 'varchar', length: 50, unique: true })
   tl_number: string;
 
   @ManyToOne(() => Industry)

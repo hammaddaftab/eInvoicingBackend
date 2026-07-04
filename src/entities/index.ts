@@ -6,4 +6,5 @@ export { Role } from './Role';
 export { RolePermission } from './RolePermission';
 export { User } from './User';
 export { UserRole } from './UserRole';
+export { Invitation } from './Invitation';
 export * from './enums';

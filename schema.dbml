@@ -41,8 +41,8 @@ Table industry {
 Table business {
   id integer [pk, increment, note: 'GENERATED ALWAYS AS IDENTITY']
   name varchar(255) [not null]
-  vat_number char(15) [unique]
-  tl_number varchar(50) [unique]
+  vat_number char(15) [unique, not null]
+  tl_number varchar(50) [unique, not null]
   industry_id smallint [not null, ref: > industry.id]
   emirate emirates_enum [not null]
   created_at timestamptz [not null, default: `now()`]
@@ -68,6 +68,7 @@ Table users {
 Table roles {
   id smallint [pk, increment, note: 'GENERATED ALWAYS AS IDENTITY']
   business_id integer [not null, ref: > business.id]
+  is_system: boolean [not null, default: false]
   name varchar(50) [not null, unique]                
   description varchar(255)
 
@@ -116,4 +117,22 @@ Table otp_verifications {
   max_attempts smallint [not null, default: 3]
   verified_at timestamptz
   created_at timestamptz [not null, default: `now()`]
+}
+
+// ─── Invitations ──────────────────────────────────
+
+Table invitations {
+  id integer [pk, increment, note: 'GENERATED ALWAYS AS IDENTITY']
+  business_id integer [not null, ref: > business.id]
+  invited_by integer [not null, ref: > users.id]
+  role_id smallint [not null, ref: > roles.id]
+  email varchar(255) [not null]
+  token_hash char(60) [not null]
+  expires_at timestamptz [not null]
+  accepted_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (business_id, email) [unique]
+  }
 }
