@@ -20,12 +20,32 @@ export const updateMyPasswordSchema = z.object({
 });
 export type UpdateMyPasswordDTO = z.infer<typeof updateMyPasswordSchema>;
 
+export const inviteSchema = z.object({
+  email: z.email(),
+  role_id: z.number().int().positive(),
+});
+export type InviteDTO = z.infer<typeof inviteSchema>;
 
-// Routes (All protected by authenticate middleware)
+export const acceptInviteSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+  name: z.string().min(2).max(100),
+  phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Must be a valid E.164 phone number'),
+  password: z.string().min(8),
+});
+export type AcceptInviteDTO = z.infer<typeof acceptInviteSchema>;
+
+// Public Routes
+router.post('/accept-invite', validate(acceptInviteSchema), UserController.acceptInvite);
+
+// Protected Routes
 router.use(authenticate);
 
 router.get('/me', UserController.getMe);
 router.patch('/me', validate(updateMeSchema), UserController.updateMe);
 router.patch('/me/password', validate(updateMyPasswordSchema), UserController.updateMyPassword);
+
+// Require OWNER or ADMIN for inviting
+import { authorize } from '../middleware/authorize';
+router.post('/invite', authorize('OWNER', 'ADMIN'), validate(inviteSchema), UserController.invite);
 
 export default router;
