@@ -61,27 +61,30 @@ export class InvitationService {
     };
   }
 
-  static async acceptInvite(token: string, name: string, phone: string, password: string) {
+  static async acceptInvite(email: string, businessId: number, token: string, name: string, phone: string, password: string) {
     const inviteRepo = AppDataSource.getRepository(Invitation);
     const userRepo = AppDataSource.getRepository(User);
 
-    // Find all pending invitations for any business (the token could be for any)
-    const invitations = await inviteRepo.find({
-      where: { accepted_at: null as any },
+    // Look up the exact invitation using the unique compound index
+    const validInvitation = await inviteRepo.findOne({
+      where: { 
+        email, 
+        business: { id: businessId },
+        accepted_at: null as any 
+      },
       relations: { business: true, role: true }
     });
 
-    let validInvitation = null;
-    for (const inv of invitations) {
-      if (inv.expires_at < new Date()) continue;
-      const isValid = await bcrypt.compare(token, inv.token_hash);
-      if (isValid) {
-        validInvitation = inv;
-        break;
-      }
+    if (!validInvitation) {
+      throw { status: 400, message: 'Invalid or expired invitation' };
     }
 
-    if (!validInvitation) {
+    if (validInvitation.expires_at < new Date()) {
+      throw { status: 400, message: 'Invitation has expired' };
+    }
+
+    const isValid = await bcrypt.compare(token, validInvitation.token_hash);
+    if (!isValid) {
       throw { status: 400, message: 'Invalid or expired invitation' };
     }
 
