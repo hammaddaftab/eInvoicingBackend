@@ -8,14 +8,14 @@ import { OtpChannel, OtpPurpose, Emirate } from '../entities/enums';
 import { AppError } from '../utils/AppError';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { SignupDTO, VerifyOtpDTO, LoginDTO, ResendOtpDTO } from '../routes/auth.routes';
+import { SignupDto, VerifyOtpDto, LoginDto, ResendOtpDto } from '../dtos/auth.dto';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
 
 export class AuthService {
   private static userRepo = AppDataSource.getRepository(User);
 
-  static async signup(data: SignupDTO) {
+  static async signup(data: SignupDto) {
 
     const hashedPassword = await bcrypt.hash(data.password, 12);
 
@@ -73,7 +73,7 @@ export class AuthService {
     }
   }
 
-  static async verifyOtp(data: VerifyOtpDTO) {
+  static async verifyOtp(data: VerifyOtpDto) {
     const isEmail = data.identifier.includes('@');
     const channel = isEmail ? OtpChannel.EMAIL : OtpChannel.PHONE;
 
@@ -113,7 +113,7 @@ export class AuthService {
     return { is_complete: true, access_token: accessToken, refresh_token: refreshToken };
   }
 
-  static async login(data: LoginDTO) {
+  static async login(data: LoginDto) {
     const user = await this.userRepo.findOne({
       where: { email: data.email },
       relations: { business: true, user_roles: { role: true } },
@@ -229,7 +229,7 @@ export class AuthService {
     await this.userRepo.save(user);
   }
 
-  static async resendOtp(data: ResendOtpDTO): Promise<void> {
+  static async resendOtp(data: ResendOtpDto): Promise<void> {
     const isEmail = data.identifier.includes('@');
     const channel = isEmail ? OtpChannel.EMAIL : OtpChannel.PHONE;
 

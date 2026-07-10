@@ -2,12 +2,9 @@ import 'reflect-metadata';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
 import { AppDataSource } from './data-source';
-import authRoutes from './routes/auth.routes';
-import userRoutes from './routes/user.routes';
-import invitationRoutes from './routes/invitation.routes';
-import roleRoutes from './routes/role.routes';
-import businessRoutes from './routes/business.routes';
+import { RegisterRoutes } from './generated/routes';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -17,16 +14,27 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/invitations', invitationRoutes);
-app.use('/api/roles', roleRoutes);
-app.use('/api/business', businessRoutes);
+// Serve Swagger UI
+app.use(
+  '/docs',
+  swaggerUi.serve,
+  swaggerUi.setup(undefined, {
+    swaggerOptions: { url: '/swagger.json' },
+  })
+);
+
+// Serve swagger.json
+app.get('/swagger.json', (_req, res) => {
+  res.sendFile(require.resolve('./generated/swagger.json'));
+});
+
+// Register TSOA routes
+RegisterRoutes(app);
 
 app.get('/', (req, res) => {
-  res.send('eInvoice Backend API is running.');
+  res.send('eInvoice Backend API is running. View docs at /docs');
 });
 
 // Error handling middleware should be last

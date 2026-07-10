@@ -1,22 +1,21 @@
-import { Request, Response, NextFunction } from 'express';
+import * as express from "express";
+import { Route, Get, Delete, Path, Controller, Tags, Security, Request } from 'tsoa';
 import { InvitationService } from '../services/invitation.service';
 
-export class InvitationController {
-  static async getInvitations(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = await InvitationService.getInvitations(req.user!.business_id);
-      res.status(200).json({ invitations: data });
-    } catch (error) {
-      next(error);
-    }
+@Route('invitations')
+@Tags('Invitations')
+export class InvitationController extends Controller {
+  @Get('')
+  @Security('jwt', ['OWNER', 'ADMIN'])
+  public async getInvitations(@Request() request: express.Request): Promise<any> {
+    const data = await InvitationService.getInvitations(request.user.business_id);
+    return { invitations: data };
   }
 
-  static async deleteInvitation(req: Request, res: Response, next: NextFunction) {
-    try {
-      await InvitationService.deleteInvitation(req.user!.business_id, parseInt(req.params.id as string));
-      res.status(200).json({ message: 'Invitation cancelled successfully' });
-    } catch (error) {
-      next(error);
-    }
+  @Delete('{id}')
+  @Security('jwt', ['OWNER', 'ADMIN'])
+  public async deleteInvitation(@Request() request: express.Request, @Path() id: number): Promise<{ message: string }> {
+    await InvitationService.deleteInvitation(request.user.business_id, id);
+    return { message: 'Invitation cancelled successfully' };
   }
 }

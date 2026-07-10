@@ -6,7 +6,7 @@ import { OtpService } from './otp.service';
 import { OtpChannel, OtpPurpose } from '../entities/enums';
 import { AppError } from '../utils/AppError';
 import bcrypt from 'bcrypt';
-import { UpdateMeDTO, UpdateMyPasswordDTO, AdminUpdateUserDTO } from '../routes/user.routes';
+import { UpdateMeDto, UpdateMyPasswordDto, AdminUpdateUserDto } from '../dtos/user.dto';
 
 export class UserService {
   private static userRepo = AppDataSource.getRepository(User);
@@ -35,7 +35,7 @@ export class UserService {
     };
   }
 
-  static async updateMe(userId: number, data: UpdateMeDTO) {
+  static async updateMe(userId: number, data: UpdateMeDto) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new AppError(404, 'User not found');
 
@@ -87,7 +87,7 @@ export class UserService {
     };
   }
 
-  static async changePassword(userId: number, data: UpdateMyPasswordDTO): Promise<void> {
+  static async changePassword(userId: number, data: UpdateMyPasswordDto): Promise<void> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new AppError(404, 'User not found');
 
@@ -146,7 +146,7 @@ export class UserService {
     };
   }
 
-  static async adminUpdateUser(businessId: number, targetUserId: number, data: AdminUpdateUserDTO) {
+  static async adminUpdateUser(businessId: number, targetUserId: number, data: AdminUpdateUserDto) {
     return await AppDataSource.manager.transaction(async (manager) => {
       const user = await manager.findOne(User, { 
         where: { id: targetUserId, business: { id: businessId } } 
@@ -160,7 +160,7 @@ export class UserService {
       }
 
       if (data.role_ids && data.role_ids.length > 0) {
-        const roles = await manager.find(Role, { where: data.role_ids.map(id => ({ id })) });
+        const roles = await manager.find(Role, { where: data.role_ids.map((id: number) => ({ id })) });
         if (roles.length !== data.role_ids.length) throw new AppError(400, 'Invalid role provided');
         
         for (const role of roles) {

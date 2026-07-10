@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../utils/AppError';
+import { ValidateError } from 'tsoa';
 
 export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
   if (err instanceof AppError) {
@@ -10,6 +11,12 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
         message: err.message,
         ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
       },
+    });
+  } else if (err instanceof ValidateError) {
+    console.warn(`Caught Validation Error for ${req.path}:`, err.fields);
+    res.status(422).json({
+      message: 'Validation Failed',
+      details: err?.fields,
     });
   } else {
     // Unexpected crash

@@ -1,90 +1,107 @@
-import { Request, Response, NextFunction } from 'express';
+import * as express from "express";
+import { Route, Get, Patch, Post, Delete, Body, Path, Controller, Tags, Security, Request, Query, SuccessResponse } from 'tsoa';
 import { UserService } from '../services/user.service';
 import { InvitationService } from '../services/invitation.service';
+import { UserDto, UpdateMeDto, UpdateMyPasswordDto, InviteDto, AcceptInviteDto, AdminUpdateUserDto } from '../dtos/user.dto';
+import { z } from 'zod';
+import { ValidateError } from 'tsoa';
 
-export class UserController {
-  static async getMe(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = await UserService.getMe(req.user!.user_id);
-      res.status(200).json(data);
-    } catch (error) {
-      next(error);
-    }
+const RequireOneFieldRules = z.object({}).catchall(z.any()).refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one field must be provided' }
+);
+
+const PasswordMatchRules = z.object({
+  current_password: z.string(),
+  new_password: z.string(),
+}).refine(
+  (data) => data.current_password !== data.new_password,
+  { message: 'New password must be different from current password' }
+);
+
+
+@Route('users')
+@Tags('Users')
+export class UserController extends Controller {
+  @Get('me')
+  @Security('jwt')
+  public async getMe(@Request() request: express.Request): Promise<any> {
+    return UserService.getMe(request.user.user_id);
   }
 
-  static async updateMe(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = await UserService.updateMe(req.user!.user_id, req.body);
-      res.status(200).json({ message: 'Profile updated successfully', ...data });
-    } catch (error) {
-      next(error);
+  @Patch('me')
+  @Security('jwt')
+  public async updateMe(@Request() request: express.Request, @Body() body: UpdateMeDto): Promise<any> {
+    const parseResult = RequireOneFieldRules.safeParse(body);
+    if (!parseResult.success) {
+      throw new ValidateError({ body: { message: 'At least one field must be provided' } }, 'Validation Failed');
     }
+    if (body.email) body.email = body.email.trim().toLowerCase();
+    
+    const data = await UserService.updateMe(request.user.user_id, body);
+    return { message: 'Profile updated successfully', ...data };
   }
 
-  static async changePassword(req: Request, res: Response, next: NextFunction) {
-    try {
-      await UserService.changePassword(req.user!.user_id, req.body);
-      res.status(200).json({ message: 'Password changed successfully' });
-    } catch (error) {
-      next(error);
+  @Patch('me/password')
+  @Security('jwt')
+  public async changePassword(@Request() request: express.Request, @Body() body: UpdateMyPasswordDto): Promise<{ message: string }> {
+    const parseResult = PasswordMatchRules.safeParse(body);
+    if (!parseResult.success) {
+      throw new ValidateError({ current_password: { message: 'New password must be different from current password' } }, 'Validation Failed');
     }
+
+    await UserService.changePassword(request.user.user_id, body);
+    return { message: 'Password changed successfully' };
   }
 
-  static async inviteUser(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { email, role_id } = req.body;
-      const data = await InvitationService.inviteUser(req.user!.business_id, req.user!.user_id, email, role_id);
-      res.status(201).json({ message: `Invitation sent to ${email}`, ...data });
-    } catch (error) {
-      next(error);
-    }
+  @Post('invite')
+  @Security('jwt', ['OWNER', 'ADMIN'])
+  @SuccessResponse('201', 'Created')
+  public async inviteUser(@Request() request: express.Request, @Body() body: InviteDto): Promise<any> {
+    body.email = body.email.trim().toLowerCase();
+    const data = await InvitationService.inviteUser(request.user.business_id, request.user.user_id, body.email, body.role_id);
+    this.setStatus(201);
+    return { message: `Invitation sent to ${body.email}`, ...data };
   }
 
-  static async acceptInvite(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { email, business_id, token, name, phone, password } = req.body;
-      const data = await InvitationService.acceptInvite(email, business_id, token, name, phone, password);
-      res.status(200).json({ message: 'Invitation accepted successfully', ...data });
-    } catch (error) {
-      next(error);
-    }
+  @Post('accept-invite')
+  public async acceptInvite(@Body() body: AcceptInviteDto): Promise<any> {
+    body.email = body.email.trim().toLowerCase();
+    const data = await InvitationService.acceptInvite(body.email, body.business_id, body.token, body.name, body.phone, body.password);
+    return { message: 'Invitation accepted successfully', ...data };
   }
 
-  static async getUsers(req: Request, res: Response, next: NextFunction) {
-    try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
-      const data = await UserService.getUsers(req.user!.business_id, page, limit);
-      res.status(200).json(data);
-    } catch (error) {
-      next(error);
-    }
+  @Get('')
+  @Security('jwt', ['OWNER', 'ADMIN'])
+  public async getUsers(
+    @Request() request: express.Request,
+    @Query() page: number = 1,
+    @Query() limit: number = 20
+  ): Promise<any> {
+    return UserService.getUsers(request.user.business_id, page, limit);
   }
 
-  static async getUser(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = await UserService.getUser(req.user!.business_id, parseInt(req.params.id as string));
-      res.status(200).json(data);
-    } catch (error) {
-      next(error);
-    }
+  @Get('{id}')
+  @Security('jwt', ['OWNER', 'ADMIN'])
+  public async getUser(@Request() request: express.Request, @Path() id: number): Promise<any> {
+    return UserService.getUser(request.user.business_id, id);
   }
 
-  static async adminUpdateUser(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = await UserService.adminUpdateUser(req.user!.business_id, parseInt(req.params.id as string), req.body);
-      res.status(200).json({ message: 'User updated successfully', user: data });
-    } catch (error) {
-      next(error);
+  @Patch('{id}')
+  @Security('jwt', ['OWNER', 'ADMIN'])
+  public async adminUpdateUser(@Request() request: express.Request, @Path() id: number, @Body() body: AdminUpdateUserDto): Promise<any> {
+    const parseResult = RequireOneFieldRules.safeParse(body);
+    if (!parseResult.success) {
+      throw new ValidateError({ body: { message: 'At least one field must be provided' } }, 'Validation Failed');
     }
+    const data = await UserService.adminUpdateUser(request.user.business_id, id, body);
+    return { message: 'User updated successfully', user: data };
   }
 
-  static async removeUser(req: Request, res: Response, next: NextFunction) {
-    try {
-      await UserService.removeUser(req.user!.business_id, req.user!.user_id, parseInt(req.params.id as string));
-      res.status(200).json({ message: 'User removed successfully' });
-    } catch (error) {
-      next(error);
-    }
+  @Delete('{id}')
+  @Security('jwt', ['OWNER'])
+  public async removeUser(@Request() request: express.Request, @Path() id: number): Promise<{ message: string }> {
+    await UserService.removeUser(request.user.business_id, request.user.user_id, id);
+    return { message: 'User removed successfully' };
   }
 }

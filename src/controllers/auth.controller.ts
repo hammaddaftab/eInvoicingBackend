@@ -1,73 +1,64 @@
-import { Request, Response, NextFunction } from 'express';
+import { Route, Post, Body, Controller, Tags, SuccessResponse } from 'tsoa';
 import { AuthService } from '../services/auth.service';
+import {
+  SignupDto,
+  VerifyOtpDto,
+  ResendOtpDto,
+  LoginDto,
+  RefreshDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+} from '../dtos/auth.dto';
 
-export class AuthController {
-  static async signup(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = await AuthService.signup(req.body);
-      res.status(201).json({ message: 'Account created. Please verify your email and phone number.', ...data });
-    } catch (error) {
-      next(error);
-    }
+@Route('auth')
+@Tags('Auth')
+export class AuthController extends Controller {
+  @Post('signup')
+  @SuccessResponse('201', 'Created')
+  public async signup(@Body() body: SignupDto): Promise<any> {
+    body.email = body.email.trim().toLowerCase();
+    const data = await AuthService.signup(body as any);
+    this.setStatus(201);
+    return { message: 'Account created. Please verify your email and phone number.', ...data };
   }
 
-  static async verifyOtp(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = await AuthService.verifyOtp(req.body);
-      const msg = data.is_complete === false 
-        ? 'Channel verified successfully. Please verify your other channel to complete signup.'
-        : 'Verification successful.';
-      res.status(200).json({ message: msg, ...data });
-    } catch (error) {
-      next(error);
-    }
+  @Post('verify-otp')
+  public async verifyOtp(@Body() body: VerifyOtpDto): Promise<any> {
+    const data = await AuthService.verifyOtp(body);
+    const msg = data.is_complete === false 
+      ? 'Channel verified successfully. Please verify your other channel to complete signup.'
+      : 'Verification successful.';
+    return { message: msg, ...data };
   }
 
-  static async resendOtp(req: Request, res: Response, next: NextFunction) {
-    try {
-      await AuthService.resendOtp(req.body);
-      res.status(200).json({ message: 'A new OTP has been sent.' });
-    } catch (error) {
-      next(error);
-    }
+  @Post('resend-otp')
+  public async resendOtp(@Body() body: ResendOtpDto): Promise<{ message: string }> {
+    await AuthService.resendOtp(body);
+    return { message: 'A new OTP has been sent.' };
   }
 
-  static async login(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = await AuthService.login(req.body);
-      res.status(200).json(data);
-    } catch (error) {
-      next(error);
-    }
+  @Post('login')
+  public async login(@Body() body: LoginDto): Promise<any> {
+    body.email = body.email.trim().toLowerCase();
+    return AuthService.login(body);
   }
 
-  static async refresh(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { refresh_token } = req.body;
-      const data = await AuthService.refresh(refresh_token);
-      res.status(200).json(data);
-    } catch (error) {
-      next(error);
-    }
+  @Post('refresh')
+  public async refresh(@Body() body: RefreshDto): Promise<any> {
+    return AuthService.refresh(body.refresh_token);
   }
 
-  static async forgotPassword(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { email } = req.body;
-      await AuthService.forgotPassword(email);
-      res.status(200).json({ message: 'If an account exists, a reset code has been sent.' });
-    } catch (error) {
-      next(error);
-    }
+  @Post('forgot-password')
+  public async forgotPassword(@Body() body: ForgotPasswordDto): Promise<{ message: string }> {
+    body.email = body.email.trim().toLowerCase();
+    await AuthService.forgotPassword(body.email);
+    return { message: 'If an account exists, a reset code has been sent.' };
   }
 
-  static async resetPassword(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { email, code, new_password } = req.body;
-      await AuthService.resetPassword(email, code, new_password);
-      res.status(200).json({ message: 'Password reset successfully' });
-    } catch (error) {
-      next(error);
-    }
+  @Post('reset-password')
+  public async resetPassword(@Body() body: ResetPasswordDto): Promise<{ message: string }> {
+    body.email = body.email.trim().toLowerCase();
+    await AuthService.resetPassword(body.email, body.code, body.new_password);
+    return { message: 'Password reset successfully' };
   }
 }

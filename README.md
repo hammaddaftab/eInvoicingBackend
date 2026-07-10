@@ -39,7 +39,7 @@ npm run migration:run
 ```
 
 ### 6. Start the Server
-Start the development server using nodemon (which will automatically restart on file changes):
+Start the development server using nodemon (which will automatically restart on file changes and regenerate routes):
 ```bash
 npm run dev
 ```
@@ -51,8 +51,9 @@ Here are the core npm scripts used in this project:
 
 | Script | Description |
 |---|---|
-| `npm run dev` | Starts the application in development mode using `nodemon`. Automatically reloads on file changes. |
+| `npm run dev` | Starts the app in dev mode using `nodemon`. Automatically regenerates TSOA routes and reloads on file changes. |
 | `npm run start` | Runs the compiled application (standard execution). |
+| `npm run tsoa:gen` | Manually generates the TSOA routes and OpenAPI (Swagger) specifications based on the controllers. |
 | `npm run migration:generate -- src/migrations/Name` | Analyzes your TypeORM entities and generates a new migration file with the provided name based on any changes. |
 | `npm run migration:run` | Applies all pending migrations to the database. |
 | `npm run migration:revert` | Reverts the most recently applied database migration. |
@@ -63,52 +64,20 @@ The annotated folder tree:
 
 ```text
 src/
-├── controllers/    ← HTTP layer
+├── controllers/    ← TSOA HTTP Controllers (API endpoints)
+├── dtos/           ← TypeScript interfaces (API payloads & validation rules)
 ├── services/       ← Business logic & transactions
 ├── entities/       ← TypeORM entities (DB source of truth)
-├── routes/         ← Express routers + Zod schemas
-├── middleware/     ← Auth, validation, error handling
-├── migrations/     ← Auto-generated migrations
+├── generated/      ← Auto-generated TSOA routes and Swagger definitions
+├── middleware/     ← Error handling
+├── migrations/     ← Auto-generated database migrations
 ├── utils/          ← AppError, shared helpers
-└── config/         ← App configuration
+└── authentication.ts ← TSOA authentication configuration
 ```
 
-## API Overview
+## API Documentation
 
-*Not full API docs, but a grouped summary of every route — method, path, auth requirement, and a brief description. Organized by module.*
+This project uses **TSOA** to automatically generate OpenAPI (Swagger) documentation directly from our TypeScript controllers and DTOs. 
 
-### Auth (`/api/auth`)
-- `POST /signup` (Public) - Register a new user and business.
-- `POST /verify-otp` (Public) - Verify email/phone using a 6-digit code.
-- `POST /resend-otp` (Public) - Request a new verification code.
-- `POST /login` (Public) - Authenticate and receive JWT tokens.
-- `POST /refresh` (Public) - Generate a new access token using a refresh token.
-- `POST /forgot-password` (Public) - Request a password reset code.
-- `POST /reset-password` (Public) - Reset password using the code.
-
-### Users (`/api/users`)
-- `POST /accept-invite` (Public) - Accept a team invite.
-- `GET /me` (Auth) - Retrieve current user profile.
-- `PATCH /me` (Auth) - Update current user profile.
-- `PATCH /me/password` (Auth) - Change password.
-- `POST /invite` (Auth + OWNER/ADMIN) - Invite a new user to the business.
-- `GET /` (Auth + OWNER/ADMIN) - List all users in the business.
-- `GET /:id` (Auth + OWNER/ADMIN) - Get details for a specific user.
-- `PATCH /:id` (Auth + OWNER/ADMIN) - Update user roles.
-- `DELETE /:id` (Auth + OWNER) - Remove a user from the business.
-
-### Roles (`/api/roles`)
-- `GET /` (Auth + OWNER/ADMIN) - List all roles in the business.
-- `POST /` (Auth + OWNER) - Create a custom role.
-- `GET /:id` (Auth + OWNER/ADMIN) - Get role details and permissions.
-- `PATCH /:id` (Auth + OWNER) - Update a role's metadata.
-- `PUT /:id/permissions` (Auth + OWNER) - Update a role's granular permissions.
-- `DELETE /:id` (Auth + OWNER) - Delete a custom role.
-
-### Business (`/api/business`)
-- `GET /` (Auth) - Get current business details.
-- `PATCH /` (Auth + OWNER) - Update business profile.
-
-### Invitations (`/api/invitations`)
-- `GET /` (Auth + OWNER/ADMIN) - List all pending invitations.
-- `DELETE /:id` (Auth + OWNER/ADMIN) - Revoke a pending invitation.
+Once the server is running, you can view the fully interactive API documentation, complete with payload schemas and authentication requirements, by navigating to:
+**[http://localhost:3000/docs](http://localhost:3000/docs)**
