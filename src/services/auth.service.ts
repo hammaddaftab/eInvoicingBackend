@@ -3,159 +3,163 @@ import { User } from '../entities/User';
 import { Business } from '../entities/Business';
 import { Role } from '../entities/Role';
 import { UserRole } from '../entities/UserRole';
-import { OtpChannel, OtpPurpose } from '../entities/enums';
 import { OtpService } from './otp.service';
-import type { SignupDTO, VerifyOtpDTO, LoginDTO, RefreshDTO, ResendOtpDTO } from '../routes/auth.routes';
+import { OtpChannel, OtpPurpose, Emirate } from '../entities/enums';
+import { AppError } from '../utils/AppError';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { SignupDTO, VerifyOtpDTO, LoginDTO, ResendOtpDTO } from '../routes/auth.routes';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
-const ACCESS_EXPIRES_IN = '15m';
-const REFRESH_EXPIRES_IN = '7d';
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
 
 export class AuthService {
+  private static userRepo = AppDataSource.getRepository(User);
+
   static async signup(data: SignupDTO) {
-    const userRepo = AppDataSource.getRepository(User);
-    
-    // Check uniqueness before starting transaction
-    const existingEmail = await userRepo.findOne({ where: { email: data.email } });
-    if (existingEmail) throw { status: 409, message: 'Email is already registered' };
 
-    const existingPhone = await userRepo.findOne({ where: { phone: data.phone } });
-    if (existingPhone) throw { status: 409, message: 'Phone number is already registered' };
+    const hashedPassword = await bcrypt.hash(data.password, 12);
 
-    return await AppDataSource.manager.transaction(async (manager) => {
-      // 1. Create Business
-      const business = manager.create(Business, {
-        name: data.business.name,
-        vat_number: data.business.vat_number,
-        tl_number: data.business.tl_number,
-        industry: { id: data.business.industry_id },
-        emirate: data.business.emirate as unknown as import('../entities/enums').Emirate,
+    try {
+      return await AppDataSource.manager.transaction(async (manager) => {
+        // 1. Create Business
+        const business = manager.create(Business, {
+          name: data.business.name,
+          vat_number: data.business.vat_number,
+          tl_number: data.business.tl_number,
+          industry: { id: data.business.industry_id },
+          emirate: data.business.emirate as Emirate,
+        });
+        await manager.save(business);
+
+        // 2. Create User
+        const user = manager.create(User, {
+          business,
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          password: hashedPassword,
+        });
+        await manager.save(user);
+
+        // 3. Seed Default Roles
+        const systemRoles = [
+          manager.create(Role, { business, name: 'OWNER', description: 'Full system access', is_system: true }),
+          manager.create(Role, { business, name: 'ADMIN', description: 'Manage users and settings', is_system: true }),
+          manager.create(Role, { business, name: 'ACCOUNTANT', description: 'Manage invoices and payments', is_system: true }),
+          manager.create(Role, { business, name: 'VIEWER', description: 'Read-only access', is_system: true }),
+        ];
+        await manager.save(systemRoles);
+
+        const ownerRole = systemRoles.find((r) => r.name === 'OWNER')!;
+
+        // 4. Assign OWNER Role
+        const userRole = manager.create(UserRole, { user, role: ownerRole });
+        await manager.save(userRole);
+
+        // 5. Generate Signup OTPs for both Email and Phone
+        await OtpService.createVerification(user, OtpChannel.PHONE, data.phone, OtpPurpose.SIGNUP);
+        await OtpService.createVerification(user, OtpChannel.EMAIL, data.email, OtpPurpose.SIGNUP);
+
+        return { user_id: user.id, business_id: business.id };
       });
-      await manager.save(business);
-
-      // 2. Create User
-      const password = await bcrypt.hash(data.password, 12);
-      const user = manager.create(User, {
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        password,
-        business,
-      });
-      await manager.save(user);
-
-      // 3. Create Default System Roles
-      const rolesToCreate = [
-        { name: 'OWNER', description: 'Full business control', is_system: true, business },
-        { name: 'ADMIN', description: 'User and settings management', is_system: true, business },
-        { name: 'ACCOUNTANT', description: 'Invoice management', is_system: true, business },
-        { name: 'VIEWER', description: 'Read-only access', is_system: true, business },
-      ];
-      const savedRoles = await manager.save(Role, rolesToCreate);
-      
-      const ownerRole = savedRoles.find((r) => r.name === 'OWNER')!;
-
-      // 4. Assign OWNER role to user
-      const userRole = manager.create(UserRole, { user, role: ownerRole });
-      await manager.save(userRole);
-
-      // 5. Generate OTPs (Phone & Email)
-      await OtpService.createVerification(user, OtpChannel.PHONE, user.phone, OtpPurpose.SIGNUP);
-      await OtpService.createVerification(user, OtpChannel.EMAIL, user.email, OtpPurpose.SIGNUP);
-
-      return {
-        message: 'Account created. Please verify your phone and email.',
-        user_id: user.id,
-        business_id: business.id,
-      };
-    });
+    } catch (err: any) {
+      if (err.code === '23505') {
+        if (err.detail.includes('email')) throw new AppError(409, 'Email is already registered');
+        if (err.detail.includes('phone')) throw new AppError(409, 'Phone number is already registered');
+        if (err.detail.includes('vat_number')) throw new AppError(409, 'VAT number is already registered');
+        if (err.detail.includes('tl_number')) throw new AppError(409, 'TL number is already registered');
+      }
+      throw err;
+    }
   }
 
   static async verifyOtp(data: VerifyOtpDTO) {
-    await OtpService.verifyOtp(data.user_id, data.channel as import('../entities/enums').OtpChannel, data.purpose as import('../entities/enums').OtpPurpose, data.code);
-    
-    const userRepo = AppDataSource.getRepository(User);
-    const user = await userRepo.findOne({
-      where: { id: data.user_id },
+    const isEmail = data.identifier.includes('@');
+    const channel = isEmail ? OtpChannel.EMAIL : OtpChannel.PHONE;
+
+    const user = await this.userRepo.findOne({
+      where: isEmail ? { email: data.identifier } : { phone: data.identifier },
       relations: { business: true, user_roles: { role: true } },
     });
 
-    if (!user) throw { status: 404, message: 'User not found' };
+    if (!user) throw new AppError(404, 'User not found');
 
-    if (data.channel === OtpChannel.PHONE) user.is_phone_verified = true;
-    if (data.channel === OtpChannel.EMAIL) user.is_email_verified = true;
-    
-    await userRepo.save(user);
+    await OtpService.verifyOtp(user.id, channel, data.purpose as OtpPurpose, data.code);
 
-    // Only issue tokens if both are verified during signup? Or just return success.
-    // The user requested to handle both unverified cases in login, so we can just return success here.
-    return {
-      message: `${data.channel} verified successfully.`,
-      is_phone_verified: user.is_phone_verified,
-      is_email_verified: user.is_email_verified,
-    };
-  }
+    if (data.purpose === OtpPurpose.SIGNUP) {
+      if (channel === OtpChannel.PHONE) user.is_phone_verified = true;
+      if (channel === OtpChannel.EMAIL) user.is_email_verified = true;
+      await this.userRepo.save(user);
 
-  static async login(data: LoginDTO) {
-    const userRepo = AppDataSource.getRepository(User);
-    const user = await userRepo.findOne({
-      where: { email: data.email },
-      relations: { business: true, user_roles: { role: true } },
-    });
-
-    if (!user) throw { status: 401, message: 'Invalid email or password' };
-
-    const isValidPassword = await bcrypt.compare(data.password, user.password);
-    if (!isValidPassword) throw { status: 401, message: 'Invalid email or password' };
-
-    // Check verification status
-    if (!user.is_phone_verified && !user.is_email_verified) {
-      throw {
-        status: 403,
-        code: 'UNVERIFIED_BOTH',
-        message: 'Please verify your phone and email to continue.',
-        user_id: user.id,
-      };
-    } else if (!user.is_phone_verified) {
-      throw {
-        status: 403,
-        code: 'UNVERIFIED_PHONE',
-        message: 'Please verify your phone number to continue.',
-        user_id: user.id,
-      };
-    } else if (!user.is_email_verified) {
-      throw {
-        status: 403,
-        code: 'UNVERIFIED_EMAIL',
-        message: 'Please verify your email to continue.',
-        user_id: user.id,
-      };
+      if (!user.is_phone_verified || !user.is_email_verified) {
+        return { is_complete: false };
+      }
     }
 
     const roles = user.user_roles.map((ur) => ur.role.name);
 
-    const access_token = jwt.sign(
+    const accessToken = jwt.sign(
       { user_id: user.id, business_id: user.business.id, roles, type: 'access' },
       JWT_SECRET,
-      { expiresIn: ACCESS_EXPIRES_IN }
+      { expiresIn: '15m' }
     );
 
-    const refresh_token = jwt.sign(
+    const refreshToken = jwt.sign(
       { user_id: user.id, type: 'refresh' },
       JWT_SECRET,
-      { expiresIn: REFRESH_EXPIRES_IN }
+      { expiresIn: '7d' }
+    );
+
+    return { is_complete: true, access_token: accessToken, refresh_token: refreshToken };
+  }
+
+  static async login(data: LoginDTO) {
+    const user = await this.userRepo.findOne({
+      where: { email: data.email },
+      relations: { business: true, user_roles: { role: true } },
+    });
+
+    if (!user) throw new AppError(401, 'Invalid email or password');
+
+    const isValidPassword = await bcrypt.compare(data.password, user.password);
+    if (!isValidPassword) throw new AppError(401, 'Invalid email or password');
+
+    if (!user.is_phone_verified || !user.is_email_verified) {
+      // Trigger new OTPs for unverified channels
+      if (!user.is_phone_verified) {
+        await OtpService.createVerification(user, OtpChannel.PHONE, user.phone, OtpPurpose.SIGNUP);
+      }
+      if (!user.is_email_verified) {
+        await OtpService.createVerification(user, OtpChannel.EMAIL, user.email, OtpPurpose.SIGNUP);
+      }
+      throw new AppError(403, 'Account not fully verified. New OTPs have been sent to your unverified channels.');
+    }
+
+    const roles = user.user_roles.map((ur) => ur.role.name);
+
+    if (roles.length === 0) {
+      throw new AppError(403, 'Your account has no assigned roles. Please contact your administrator.');
+    }
+
+    const accessToken = jwt.sign(
+      { user_id: user.id, business_id: user.business.id, roles, type: 'access' },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const refreshToken = jwt.sign(
+      { user_id: user.id, type: 'refresh' },
+      JWT_SECRET,
+      { expiresIn: '7d' }
     );
 
     return {
-      access_token,
-      refresh_token,
+      access_token: accessToken,
+      refresh_token: refreshToken,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
-        roles,
         business: {
           id: user.business.id,
           name: user.business.name,
@@ -164,84 +168,77 @@ export class AuthService {
     };
   }
 
-  static async refresh(data: RefreshDTO) {
+  static async refresh(refreshToken: string) {
+    let decoded: any;
     try {
-      const decoded = jwt.verify(data.refresh_token, JWT_SECRET) as any;
-      if (decoded.type !== 'refresh') throw new Error();
-
-      const userRepo = AppDataSource.getRepository(User);
-      const user = await userRepo.findOne({
-        where: { id: decoded.user_id },
-        relations: { business: true, user_roles: { role: true } },
-      });
-
-      if (!user) throw new Error();
-
-      const roles = user.user_roles.map((ur) => ur.role.name);
-
-      const access_token = jwt.sign(
-        { user_id: user.id, business_id: user.business.id, roles, type: 'access' },
-        JWT_SECRET,
-        { expiresIn: ACCESS_EXPIRES_IN }
-      );
-
-      const refresh_token = jwt.sign(
-        { user_id: user.id, type: 'refresh' },
-        JWT_SECRET,
-        { expiresIn: REFRESH_EXPIRES_IN }
-      );
-
-      return { access_token, refresh_token };
+      decoded = jwt.verify(refreshToken, JWT_SECRET);
     } catch {
-      throw { status: 401, message: 'Invalid or expired refresh token' };
+      throw new AppError(401, 'Invalid or expired refresh token');
     }
-  }
 
-  static async forgotPassword(email: string) {
-    const userRepo = AppDataSource.getRepository(User);
-    const user = await userRepo.findOne({ where: { email } });
+    if (decoded.type !== 'refresh') {
+      throw new AppError(401, 'Invalid token type');
+    }
 
-    // Always return 200 to prevent email enumeration
-    const defaultResponse = { message: 'If an account exists, a reset code has been sent.' };
+    const user = await this.userRepo.findOne({
+      where: { id: decoded.user_id },
+      relations: { business: true, user_roles: { role: true } },
+    });
 
     if (!user) {
-      return defaultResponse;
+      throw new AppError(401, 'User no longer exists');
     }
 
-    // Generate OTP (OtpService handles logging/sending)
+    const roles = user.user_roles.map((ur) => ur.role.name);
+
+    const newAccessToken = jwt.sign(
+      { user_id: user.id, business_id: user.business.id, roles, type: 'access' },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const newRefreshToken = jwt.sign(
+      { user_id: user.id, type: 'refresh' },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return { access_token: newAccessToken, refresh_token: newRefreshToken };
+  }
+
+  static async forgotPassword(email: string): Promise<void> {
+    const user = await this.userRepo.findOne({ where: { email } });
+
+    // If not found, do nothing, return normally to prevent enumeration
+    if (!user) return;
+
     await OtpService.createVerification(user, OtpChannel.EMAIL, email, OtpPurpose.RESET_PASSWORD);
-
-    return defaultResponse;
   }
 
-  static async resetPassword(email: string, code: string, newPassword: string) {
-    const userRepo = AppDataSource.getRepository(User);
-    const user = await userRepo.findOne({ where: { email } });
+  static async resetPassword(email: string, code: string, newPassword: string): Promise<void> {
+    const user = await this.userRepo.findOne({ where: { email } });
 
     if (!user) {
-      throw { status: 400, message: 'Invalid reset request' };
+      throw new AppError(400, 'Invalid reset request');
     }
 
-    // Verify the OTP (this will throw if invalid/expired/too many attempts)
     await OtpService.verifyOtp(user.id, OtpChannel.EMAIL, OtpPurpose.RESET_PASSWORD, code);
 
-    // Hash the new password
     const hashedPassword = await bcrypt.hash(newPassword, 12);
     user.password = hashedPassword;
-    await userRepo.save(user);
-
-    return { message: 'Password reset successfully' };
+    await this.userRepo.save(user);
   }
 
-  static async resendOtp(data: ResendOtpDTO) {
-    const userRepo = AppDataSource.getRepository(User);
-    const user = await userRepo.findOne({ where: { id: data.user_id } });
-    
-    if (!user) throw { status: 404, message: 'User not found' };
+  static async resendOtp(data: ResendOtpDTO): Promise<void> {
+    const isEmail = data.identifier.includes('@');
+    const channel = isEmail ? OtpChannel.EMAIL : OtpChannel.PHONE;
 
-    const destination = data.channel === OtpChannel.PHONE ? user.phone : user.email;
-    await OtpService.createVerification(user, data.channel as import('../entities/enums').OtpChannel, destination, data.purpose as import('../entities/enums').OtpPurpose);
+    const user = await this.userRepo.findOne({
+      where: isEmail ? { email: data.identifier } : { phone: data.identifier },
+    });
+    if (!user) throw new AppError(404, 'User not found');
 
-    return { message: 'OTP sent successfully.' };
+    const destination = isEmail ? user.email : user.phone;
+    await OtpService.createVerification(user, channel, destination, data.purpose as OtpPurpose);
   }
 }

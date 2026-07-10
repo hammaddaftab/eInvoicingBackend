@@ -4,63 +4,78 @@ import { validate } from '../middleware/validate';
 import { AuthController } from '../controllers/auth.controller';
 import { Emirate, OtpChannel, OtpPurpose } from '../entities/enums';
 
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).*$/;
+const passwordMessage = 'Password must contain at least one uppercase letter, one lowercase letter, and one number';
+
 export const forgotPasswordSchema = z.object({
-  email: z.email(),
+  body: z.object({
+    email: z.string().trim().toLowerCase().email(),
+  }).strict(),
 });
 
 export const resetPasswordSchema = z.object({
-  email: z.email(),
-  code: z.string().length(6),
-  new_password: z.string().min(8),
+  body: z.object({
+    email: z.string().trim().toLowerCase().email(),
+    code: z.string().trim().regex(/^\d{6}$/, 'Must be a 6-digit number'),
+    new_password: z.string().trim().min(8).regex(passwordRegex, passwordMessage),
+  }).strict(),
 });
 
 const router = Router();
 
 export const signupSchema = z.object({
-  name: z.string().min(2).max(100),
-  email: z.email(),
-  phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Must be a valid E.164 phone number'),
-  password: z.string().min(8),
-  business: z.object({
-    name: z.string().min(2).max(255),
-    vat_number: z.string().length(15),
-    tl_number: z.string().max(50),
-    industry_id: z.number().int().positive(),
-    emirate: z.enum(Object.values(Emirate) as [string, ...string[]]),
-  }),
+  body: z.object({
+    name: z.string().trim().min(2).max(100),
+    email: z.string().trim().toLowerCase().email(),
+    phone: z.string().trim().regex(/^\+?[1-9]\d{1,14}$/, 'Must be a valid E.164 phone number'),
+    password: z.string().trim().min(8).regex(passwordRegex, passwordMessage),
+    business: z.object({
+      name: z.string().trim().min(2).max(255),
+      vat_number: z.string().trim().length(15),
+      tl_number: z.string().trim().max(50),
+      industry_id: z.number().int().positive(),
+      emirate: z.nativeEnum(Emirate),
+    }).strict(),
+  }).strict(),
 });
 
-export type SignupDTO = z.infer<typeof signupSchema>;
+export type SignupDTO = z.infer<typeof signupSchema>['body'];
 
 export const verifyOtpSchema = z.object({
-  user_id: z.number().int().positive(),
-  code: z.string().length(6),
-  channel: z.enum(Object.values(OtpChannel) as [string, ...string[]]),
-  purpose: z.enum(Object.values(OtpPurpose) as [string, ...string[]]),
+  body: z.object({
+    identifier: z.string().trim(),
+    code: z.string().trim().regex(/^\d{6}$/, 'Must be a 6-digit number'),
+    purpose: z.enum([OtpPurpose.SIGNUP, OtpPurpose.RESET_PASSWORD]),
+  }).strict(),
 });
 
-export type VerifyOtpDTO = z.infer<typeof verifyOtpSchema>;
+export type VerifyOtpDTO = z.infer<typeof verifyOtpSchema>['body'];
 
 export const resendOtpSchema = z.object({
-  user_id: z.number().int().positive(),
-  channel: z.enum(Object.values(OtpChannel) as [string, ...string[]]),
-  purpose: z.enum(Object.values(OtpPurpose) as [string, ...string[]]),
+  body: z.object({
+    identifier: z.string().trim(),
+    purpose: z.enum([OtpPurpose.SIGNUP, OtpPurpose.RESET_PASSWORD]),
+  }).strict(),
 });
 
-export type ResendOtpDTO = z.infer<typeof resendOtpSchema>;
+export type ResendOtpDTO = z.infer<typeof resendOtpSchema>['body'];
 
 export const loginSchema = z.object({
-  email: z.email(),
-  password: z.string().min(1),
+  body: z.object({
+    email: z.string().trim().toLowerCase().email(),
+    password: z.string().trim().min(1),
+  }).strict(),
 });
 
-export type LoginDTO = z.infer<typeof loginSchema>;
+export type LoginDTO = z.infer<typeof loginSchema>['body'];
 
 export const refreshSchema = z.object({
-  refresh_token: z.string().min(1),
+  body: z.object({
+    refresh_token: z.string().trim().min(1),
+  }).strict(),
 });
 
-export type RefreshDTO = z.infer<typeof refreshSchema>;
+export type RefreshDTO = z.infer<typeof refreshSchema>['body'];
 
 router.post('/signup', validate(signupSchema), AuthController.signup);
 router.post('/verify-otp', validate(verifyOtpSchema), AuthController.verifyOtp);

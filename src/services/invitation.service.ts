@@ -1,175 +1,161 @@
 import { AppDataSource } from '../data-source';
 import { Invitation } from '../entities/Invitation';
 import { User } from '../entities/User';
-import { UserRole } from '../entities/UserRole';
 import { Role } from '../entities/Role';
+import { UserRole } from '../entities/UserRole';
+import { AppError } from '../utils/AppError';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
 
 export class InvitationService {
-  static async invite(businessId: number, invitedById: number, email: string, roleId: number) {
-    const userRepo = AppDataSource.getRepository(User);
-    const roleRepo = AppDataSource.getRepository(Role);
-    const inviteRepo = AppDataSource.getRepository(Invitation);
+  private static inviteRepo = AppDataSource.getRepository(Invitation);
+  private static userRepo = AppDataSource.getRepository(User);
+  private static roleRepo = AppDataSource.getRepository(Role);
 
-    // 1. Check if email already exists as a user
-    const existingUser = await userRepo.findOne({ where: { email } });
-    if (existingUser) {
-      throw { status: 409, message: 'User with this email already exists' };
+  static async inviteUser(businessId: number, invitedById: number, email: string, roleId: number) {
+    const existingUser = await this.userRepo.findOne({ where: { email } });
+    if (existingUser) throw new AppError(409, 'User with this email already exists');
+
+    const role = await this.roleRepo.findOne({ where: { id: roleId } });
+    if (!role) throw new AppError(404, 'Role not found');
+    if (!role.is_system && role.business && role.business.id !== businessId) {
+      throw new AppError(403, 'Invalid role for this business');
     }
 
-    // 2. Validate role
-    const role = await roleRepo.findOne({ 
-      where: { id: roleId },
-      relations: { business: true } 
-    });
-    if (!role) throw { status: 404, message: 'Role not found' };
-    if (role.business.id !== businessId) {
-      throw { status: 403, message: 'Invalid role for this business' };
-    }
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = await bcrypt.hash(rawToken, 12);
 
-    // 3. Generate secure token
-    const token = crypto.randomBytes(32).toString('hex');
-    const token_hash = await bcrypt.hash(token, 10);
-    
-    // Expires in 7 days
-    const expires_at = new Date();
-    expires_at.setDate(expires_at.getDate() + 7);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
-    // 4. Upsert Invitation (if one already exists, replace it, but TypeORM handles conflicts based on UNIQUE constraint)
-    // We can delete the old one or overwrite it. Let's delete the old one if it's pending.
-    await inviteRepo.delete({ email, business: { id: businessId }, accepted_at: null as any });
-
-    const invitation = inviteRepo.create({
+    const invitation = this.inviteRepo.create({
       business: { id: businessId },
       invited_by: { id: invitedById },
-      role: { id: roleId },
       email,
-      token_hash,
-      expires_at
+      role: { id: roleId },
+      token_hash: tokenHash,
+      expires_at: expiresAt
     });
 
-    await inviteRepo.save(invitation);
+    try {
+      await this.inviteRepo.save(invitation);
+    } catch (err: any) {
+      if (err.code === '23505') {
+        throw new AppError(409, 'An invitation already exists for this email in this business');
+      }
+      throw err;
+    }
 
-    // In a real application, you would send the plain `token` via email here.
-    return { 
-      message: 'Invitation sent successfully', 
-      _development_token: token 
+    // In a real app, send the rawToken via email (e.g. https://frontend.com/accept-invite?token=rawToken)
+    console.log(`[Email Mock] Sent invite to ${email} with token: ${rawToken}`);
+
+    return {
+      invitation_id: invitation.id,
+      expires_at: invitation.expires_at
     };
   }
 
   static async acceptInvite(email: string, businessId: number, token: string, name: string, phone: string, password: string) {
-    const inviteRepo = AppDataSource.getRepository(Invitation);
-    const userRepo = AppDataSource.getRepository(User);
-
-    // Look up the exact invitation using the unique compound index
-    const validInvitation = await inviteRepo.findOne({
+    const validInvitation = await this.inviteRepo.findOne({
       where: { 
         email, 
         business: { id: businessId },
         accepted_at: null as any 
       },
-      relations: { business: true, role: true }
+      relations: { business: true, role: true, invited_by: true }
     });
 
     if (!validInvitation) {
-      throw { status: 400, message: 'Invalid or expired invitation' };
+      throw new AppError(400, 'Invalid or expired invitation');
     }
 
     if (validInvitation.expires_at < new Date()) {
-      throw { status: 400, message: 'Invitation has expired' };
+      throw new AppError(400, 'Invitation has expired');
     }
 
     const isValid = await bcrypt.compare(token, validInvitation.token_hash);
     if (!isValid) {
-      throw { status: 400, message: 'Invalid or expired invitation' };
+      throw new AppError(400, 'Invalid or expired invitation');
     }
-
-    // Check phone uniqueness
-    const existingPhone = await userRepo.findOne({ where: { phone } });
-    if (existingPhone) throw { status: 409, message: 'Phone number is already registered' };
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    return await AppDataSource.manager.transaction(async (manager) => {
-      // 1. Create User
-      const user = manager.create(User, {
-        business: { id: validInvitation.business.id },
-        name,
-        email: validInvitation.email,
-        phone,
-        password: hashedPassword,
-        is_email_verified: true, // Auto-verified because they clicked the email link
-        created_by: { id: validInvitation.invited_by.id }
+    try {
+      return await AppDataSource.manager.transaction(async (manager) => {
+        const user = manager.create(User, {
+          business: { id: validInvitation.business.id },
+          name,
+          email: validInvitation.email,
+          phone,
+          password: hashedPassword,
+          is_email_verified: true,
+          created_by: { id: validInvitation.invited_by.id }
+        });
+        await manager.save(user);
+
+        const userRole = manager.create(UserRole, {
+          user: { id: user.id },
+          role: { id: validInvitation.role.id }
+        });
+        await manager.save(userRole);
+
+        validInvitation.accepted_at = new Date();
+        await manager.save(validInvitation);
+
+        const accessToken = jwt.sign(
+          { user_id: user.id, business_id: validInvitation.business.id, roles: [validInvitation.role.name], type: 'access' },
+          JWT_SECRET,
+          { expiresIn: '15m' }
+        );
+        const refreshToken = jwt.sign(
+          { user_id: user.id, type: 'refresh' },
+          JWT_SECRET,
+          { expiresIn: '7d' }
+        );
+
+        return {
+          user: { id: user.id, name: user.name, email: user.email },
+          tokens: { access_token: accessToken, refresh_token: refreshToken }
+        };
       });
-      await manager.save(user);
-
-      // 2. Assign Role
-      const userRole = manager.create(UserRole, {
-        user: { id: user.id },
-        role: { id: validInvitation.role.id }
-      });
-      await manager.save(userRole);
-
-      // 3. Mark Invitation Accepted
-      validInvitation.accepted_at = new Date();
-      await manager.save(validInvitation);
-
-      // 4. Generate JWT
-      const accessToken = jwt.sign(
-        { user_id: user.id, business_id: validInvitation.business.id, roles: [validInvitation.role.name], type: 'access' },
-        JWT_SECRET,
-        { expiresIn: '15m' }
-      );
-      const refreshToken = jwt.sign(
-        { user_id: user.id, type: 'refresh' },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-
-      return {
-        message: 'Invitation accepted successfully',
-        user: { id: user.id, name: user.name, email: user.email },
-        tokens: { access_token: accessToken, refresh_token: refreshToken }
-      };
-    });
+    } catch (err: any) {
+      if (err.code === '23505') {
+        if (err.detail.includes('phone')) throw new AppError(409, 'Phone number is already registered');
+        if (err.detail.includes('email')) throw new AppError(409, 'Email is already registered');
+      }
+      throw err;
+    }
   }
 
   static async getInvitations(businessId: number) {
-    const inviteRepo = AppDataSource.getRepository(Invitation);
-    const invitations = await inviteRepo.find({
+    const invitations = await this.inviteRepo.find({
       where: { business: { id: businessId }, accepted_at: null as any },
       relations: { role: true, invited_by: true },
       order: { created_at: 'DESC' }
     });
 
-    return {
-      invitations: invitations.map(inv => ({
-        id: inv.id,
-        email: inv.email,
-        role: { id: inv.role.id, name: inv.role.name },
-        invited_by: { id: inv.invited_by.id, name: inv.invited_by.name },
-        is_expired: inv.expires_at < new Date(),
-        expires_at: inv.expires_at,
-        created_at: inv.created_at
-      }))
-    };
+    return invitations.map(inv => ({
+      id: inv.id,
+      email: inv.email,
+      role: { id: inv.role.id, name: inv.role.name },
+      invited_by: { id: inv.invited_by.id, name: inv.invited_by.name },
+      is_expired: inv.expires_at < new Date(),
+      expires_at: inv.expires_at,
+      created_at: inv.created_at
+    }));
   }
 
-  static async deleteInvitation(businessId: number, invitationId: number) {
-    const inviteRepo = AppDataSource.getRepository(Invitation);
-    const invitation = await inviteRepo.findOne({
+  static async deleteInvitation(businessId: number, invitationId: number): Promise<void> {
+    const invitation = await this.inviteRepo.findOne({
       where: { id: invitationId, business: { id: businessId } }
     });
 
-    if (!invitation) throw { status: 404, message: 'Invitation not found' };
-    if (invitation.accepted_at) throw { status: 400, message: 'Cannot cancel an accepted invitation' };
+    if (!invitation) throw new AppError(404, 'Invitation not found');
+    if (invitation.accepted_at) throw new AppError(400, 'Cannot cancel an accepted invitation');
 
-    await inviteRepo.remove(invitation);
-
-    return { message: 'Invitation cancelled successfully' };
+    await this.inviteRepo.remove(invitation);
   }
 }

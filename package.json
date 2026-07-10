@@ -10,10 +10,7 @@
     "typeorm": "node -r dotenv/config -r ts-node/register ./node_modules/typeorm/cli.js",
     "migration:generate": "npm run typeorm -- migration:generate -d src/data-source.ts",
     "migration:run": "npm run typeorm -- migration:run -d src/data-source.ts",
-    "migration:revert": "npm run typeorm -- migration:revert -d src/data-source.ts",
-    "db:dump-schema": "npx dotenv -- pg_dump --schema-only --no-owner --no-privileges > schema.sql",
-    "db:generate-dbml": "npx -y -p @dbml/cli sql2dbml schema.sql --postgres -o generated_schema.dbml",
-    "db:sync-docs": "npm run db:dump-schema && npm run db:generate-dbml"
+    "migration:revert": "npm run typeorm -- migration:revert -d src/data-source.ts"
   },
   "keywords": [],
   "author": "",
@@ -29,13 +26,11 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@dbml/cli": "^9.0.0-alpha.2",
     "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.0.1",
-    "dotenv-cli": "^11.0.0",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"

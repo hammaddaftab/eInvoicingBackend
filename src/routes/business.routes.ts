@@ -4,15 +4,18 @@ import { BusinessController } from '../controllers/business.controller';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
 import { validate } from '../middleware/validate';
+import { Emirate } from '../entities/enums';
 
 const router = Router();
 
 export const updateBusinessSchema = z.object({
-  name: z.string().min(2).max(255).optional(),
-  vat_number: z.string().length(15).optional(),
-  tl_number: z.string().min(1).max(50).optional(),
-  industry_id: z.number().int().positive().optional(),
-  emirate: z.enum(['ABU_DHABI', 'DUBAI', 'SHARJAH', 'AJMAN', 'UMM_AL_QUWAIN', 'RAS_AL_KHAIMAH', 'FUJAIRAH']).optional(),
+  body: z.object({
+    name: z.string().trim().min(2).max(255).optional(),
+    vat_number: z.string().trim().length(15).optional(),
+    tl_number: z.string().trim().min(1).max(50).optional(),
+    industry_id: z.number().int().positive().optional(),
+    emirate: z.nativeEnum(Emirate).optional(),
+  }).strict().refine(data => Object.keys(data).length > 0, 'At least one field must be provided'),
 });
 
 router.use(authenticate);

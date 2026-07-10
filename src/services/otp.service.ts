@@ -2,6 +2,7 @@ import { AppDataSource } from '../data-source';
 import { OtpVerification } from '../entities/OtpVerification';
 import { OtpChannel, OtpPurpose } from '../entities/enums';
 import { User } from '../entities/User';
+import { AppError } from '../utils/AppError';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 
@@ -48,15 +49,15 @@ export class OtpService {
     });
 
     if (!verification || verification.verified_at) {
-      throw { status: 400, message: 'Invalid or expired OTP' };
+      throw new AppError(400, 'Invalid or expired OTP');
     }
 
     if (verification.expires_at < new Date()) {
-      throw { status: 400, message: 'OTP has expired' };
+      throw new AppError(400, 'OTP has expired');
     }
 
     if (verification.attempts >= verification.max_attempts) {
-      throw { status: 429, message: 'Too many attempts. Please request a new OTP.' };
+      throw new AppError(429, 'Too many attempts. Please request a new OTP.');
     }
 
     const isValid = await bcrypt.compare(code, verification.code_hash);
@@ -64,7 +65,7 @@ export class OtpService {
     if (!isValid) {
       verification.attempts += 1;
       await this.repo.save(verification);
-      throw { status: 400, message: 'Invalid code' };
+      throw new AppError(400, 'Invalid code');
     }
 
     verification.verified_at = new Date();

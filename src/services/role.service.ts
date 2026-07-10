@@ -4,28 +4,32 @@ import { UserRole } from '../entities/UserRole';
 import { RolePermission } from '../entities/RolePermission';
 import { Feature } from '../entities/Feature';
 import { PermissionLevel } from '../entities/enums';
+import { AppError } from '../utils/AppError';
 
 export class RoleService {
-  static async createRole(businessId: number, data: { name: string; description?: string }) {
-    const roleRepo = AppDataSource.getRepository(Role);
-    
-    const existing = await roleRepo.findOne({ where: { business: { id: businessId }, name: data.name } });
-    if (existing) throw { status: 409, message: 'A role with this name already exists' };
+  private static roleRepo = AppDataSource.getRepository(Role);
 
-    const role = roleRepo.create({
+  static async createRole(businessId: number, data: { name: string; description?: string }) {
+    const role = this.roleRepo.create({
       business: { id: businessId },
       name: data.name,
       description: data.description,
       is_system: false
     });
 
-    await roleRepo.save(role);
-    return role;
+    try {
+      await this.roleRepo.save(role);
+      return role;
+    } catch (err: any) {
+      if (err.code === '23505') {
+        throw new AppError(409, 'A role with this name already exists in this business');
+      }
+      throw err;
+    }
   }
 
   static async getRoles(businessId: number) {
-    const roleRepo = AppDataSource.getRepository(Role);
-    const roles = await roleRepo.find({
+    const roles = await this.roleRepo.find({
       where: { business: { id: businessId } },
       order: { is_system: 'DESC', name: 'ASC' }
     });
@@ -39,13 +43,12 @@ export class RoleService {
   }
 
   static async getRole(businessId: number, roleId: number) {
-    const roleRepo = AppDataSource.getRepository(Role);
-    const role = await roleRepo.findOne({
+    const role = await this.roleRepo.findOne({
       where: { id: roleId, business: { id: businessId } },
       relations: { role_permissions: { feature: true } }
     });
 
-    if (!role) throw { status: 404, message: 'Role not found' };
+    if (!role) throw new AppError(404, 'Role not found');
 
     return {
       id: role.id,
@@ -61,62 +64,57 @@ export class RoleService {
   }
 
   static async updateRole(businessId: number, roleId: number, data: { name?: string; description?: string }) {
-    const roleRepo = AppDataSource.getRepository(Role);
-    const role = await roleRepo.findOne({ where: { id: roleId, business: { id: businessId } } });
+    const role = await this.roleRepo.findOne({ where: { id: roleId, business: { id: businessId } } });
 
-    if (!role) throw { status: 404, message: 'Role not found' };
-    if (role.is_system) throw { status: 403, message: 'System roles cannot be modified' };
+    if (!role) throw new AppError(404, 'Role not found');
+    if (role.is_system) throw new AppError(403, 'System roles cannot be modified');
 
-    if (data.name && data.name !== role.name) {
-      const existing = await roleRepo.findOne({ where: { business: { id: businessId }, name: data.name } });
-      if (existing) throw { status: 409, message: 'A role with this name already exists' };
-      role.name = data.name;
+    if (data.name) role.name = data.name;
+    if (data.description !== undefined) role.description = data.description;
+
+    try {
+      await this.roleRepo.save(role);
+      return role;
+    } catch (err: any) {
+      if (err.code === '23505') {
+        throw new AppError(409, 'A role with this name already exists in this business');
+      }
+      throw err;
     }
-
-    if (data.description !== undefined) {
-      role.description = data.description;
-    }
-
-    await roleRepo.save(role);
-    return { message: 'Role updated successfully', role };
   }
 
-  static async deleteRole(businessId: number, roleId: number) {
-    const roleRepo = AppDataSource.getRepository(Role);
-    const userRoleRepo = AppDataSource.getRepository(UserRole);
-
-    const role = await roleRepo.findOne({ where: { id: roleId, business: { id: businessId } } });
-    if (!role) throw { status: 404, message: 'Role not found' };
-    if (role.is_system) throw { status: 403, message: 'System roles cannot be deleted' };
-
-    const usersCount = await userRoleRepo.count({ where: { role: { id: roleId } } });
-    if (usersCount > 0) {
-      throw { status: 400, message: `Cannot delete role: ${usersCount} user(s) are still assigned to it. Reassign them first.` };
-    }
-
+  static async deleteRole(businessId: number, roleId: number): Promise<void> {
     return await AppDataSource.manager.transaction(async (manager) => {
+      const role = await manager.findOne(Role, { where: { id: roleId, business: { id: businessId } } });
+      if (!role) throw new AppError(404, 'Role not found');
+      if (role.is_system) throw new AppError(403, 'System roles cannot be deleted');
+
+      const usersCount = await manager.count(UserRole, { where: { role: { id: roleId } } });
+      if (usersCount > 0) {
+        throw new AppError(400, `Cannot delete role: ${usersCount} user(s) are still assigned to it. Reassign them first.`);
+      }
+
       await manager.delete(RolePermission, { role: { id: roleId } });
       await manager.delete(Role, { id: roleId });
-      return { message: 'Role deleted successfully' };
     });
   }
 
   static async setPermissions(businessId: number, roleId: number, permissions: { feature_id: number; permission: PermissionLevel }[]) {
     return await AppDataSource.manager.transaction(async (manager) => {
       const role = await manager.findOne(Role, { where: { id: roleId, business: { id: businessId } } });
-      if (!role) throw { status: 404, message: 'Role not found' };
+      if (!role) throw new AppError(404, 'Role not found');
 
       // Validate feature_ids
       const featureIds = permissions.map(p => p.feature_id);
       const uniqueFeatureIds = new Set(featureIds);
       if (featureIds.length !== uniqueFeatureIds.size) {
-        throw { status: 400, message: 'Duplicate feature_id detected in permissions array' };
+        throw new AppError(400, 'Duplicate feature_id detected in permissions array');
       }
 
       if (featureIds.length > 0) {
         const features = await manager.find(Feature, { where: featureIds.map(id => ({ id })) });
         if (features.length !== featureIds.length) {
-           throw { status: 400, message: 'One or more invalid feature_ids provided' };
+           throw new AppError(400, 'One or more invalid feature_ids provided');
         }
       }
 
@@ -138,10 +136,13 @@ export class RoleService {
         relations: { role_permissions: { feature: true } }
       });
 
+      if (!updatedRole) {
+        throw new AppError(500, 'Role disappeared during permission update');
+      }
+
       return {
-        message: 'Permissions updated successfully',
-        role_id: role.id,
-        permissions: updatedRole!.role_permissions.map(rp => ({
+        role_id: updatedRole.id,
+        permissions: updatedRole.role_permissions.map(rp => ({
           feature_id: rp.feature.id,
           feature: rp.feature.name,
           permission: rp.permission
