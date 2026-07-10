@@ -1,4 +1,5 @@
 import { Emirate } from '../entities/enums';
+import { Business } from '../entities/Business';
 
 export interface BusinessDto {
   id: number;
@@ -32,4 +33,32 @@ export interface UpdateBusinessDto {
    */
   industry_id?: number;
   emirate?: Emirate;
+}
+
+export interface BusinessResponseDto {
+  id: number;
+  name: string;
+  vat_number?: string;
+  tl_number?: string;
+  emirate: Emirate;
+  industry?: {
+    id: number;
+    name: string;
+  };
+}
+
+export interface UpdateBusinessResponseDto {
+  message: string;
+  business: BusinessResponseDto;
+}
+
+export function toBusinessDto(business: Business): BusinessResponseDto {
+  return {
+    id: business.id,
+    name: business.name,
+    vat_number: business.vat_number || undefined,
+    tl_number: business.tl_number || undefined,
+    emirate: business.emirate,
+    industry: business.industry ? { id: business.industry.id, name: business.industry.name } : undefined
+  };
 }

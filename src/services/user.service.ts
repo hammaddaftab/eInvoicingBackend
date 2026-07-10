@@ -20,19 +20,7 @@ export class UserService {
 
     if (!user) throw new AppError(404, 'User not found');
 
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      is_phone_verified: user.is_phone_verified,
-      is_email_verified: user.is_email_verified,
-      roles: user.user_roles.map(ur => ur.role.name),
-      business: {
-        id: user.business.id,
-        name: user.business.name
-      }
-    };
+    return user;
   }
 
   static async updateMe(userId: number, data: UpdateMeDto) {
@@ -74,14 +62,7 @@ export class UserService {
     }
 
     return {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        is_phone_verified: user.is_phone_verified,
-        is_email_verified: user.is_email_verified
-      },
+      user,
       email_verification_sent: emailChanged,
       phone_verification_sent: phoneChanged
     };
@@ -110,16 +91,7 @@ export class UserService {
     });
 
     return {
-      users: users.map(user => ({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        roles: user.user_roles.map(ur => ur.role.name),
-        is_phone_verified: user.is_phone_verified,
-        is_email_verified: user.is_email_verified,
-        created_at: user.created_at
-      })),
+      users,
       total,
       page,
       limit
@@ -134,16 +106,7 @@ export class UserService {
 
     if (!user) throw new AppError(404, 'User not found');
 
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      roles: user.user_roles.map(ur => ({ id: ur.role.id, name: ur.role.name })),
-      is_phone_verified: user.is_phone_verified,
-      is_email_verified: user.is_email_verified,
-      created_at: user.created_at
-    };
+    return user;
   }
 
   static async adminUpdateUser(businessId: number, targetUserId: number, data: AdminUpdateUserDto) {
@@ -184,11 +147,7 @@ export class UserService {
         throw new AppError(500, 'User disappeared during update');
       }
 
-      return {
-        id: updatedUser.id,
-        name: updatedUser.name,
-        roles: updatedUser.user_roles.map(ur => ({ id: ur.role.id, name: ur.role.name }))
-      };
+      return updatedUser;
     });
   }
 

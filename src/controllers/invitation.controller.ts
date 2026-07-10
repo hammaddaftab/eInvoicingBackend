@@ -1,15 +1,16 @@
 import * as express from "express";
 import { Route, Get, Delete, Path, Controller, Tags, Security, Request } from 'tsoa';
 import { InvitationService } from '../services/invitation.service';
+import { GetInvitationsResponseDto, toInvitationDto } from '../dtos/invitation.dto';
 
 @Route('invitations')
 @Tags('Invitations')
 export class InvitationController extends Controller {
   @Get('')
   @Security('jwt', ['OWNER', 'ADMIN'])
-  public async getInvitations(@Request() request: express.Request): Promise<any> {
-    const data = await InvitationService.getInvitations(request.user.business_id);
-    return { invitations: data };
+  public async getInvitations(@Request() request: express.Request): Promise<GetInvitationsResponseDto> {
+    const invitations = await InvitationService.getInvitations(request.user.business_id);
+    return { invitations: invitations.map(toInvitationDto) };
   }
 
   @Delete('{id}')

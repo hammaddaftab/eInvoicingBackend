@@ -8,6 +8,10 @@ import {
   RefreshDto,
   ForgotPasswordDto,
   ResetPasswordDto,
+  SignupResponseDto,
+  VerifyOtpResponseDto,
+  LoginResponseDto,
+  RefreshResponseDto
 } from '../dtos/auth.dto';
 
 @Route('auth')
@@ -15,7 +19,7 @@ import {
 export class AuthController extends Controller {
   @Post('signup')
   @SuccessResponse('201', 'Created')
-  public async signup(@Body() body: SignupDto): Promise<any> {
+  public async signup(@Body() body: SignupDto): Promise<SignupResponseDto> {
     body.email = body.email.trim().toLowerCase();
     const data = await AuthService.signup(body as any);
     this.setStatus(201);
@@ -23,7 +27,7 @@ export class AuthController extends Controller {
   }
 
   @Post('verify-otp')
-  public async verifyOtp(@Body() body: VerifyOtpDto): Promise<any> {
+  public async verifyOtp(@Body() body: VerifyOtpDto): Promise<VerifyOtpResponseDto> {
     const data = await AuthService.verifyOtp(body);
     const msg = data.is_complete === false 
       ? 'Channel verified successfully. Please verify your other channel to complete signup.'
@@ -38,13 +42,13 @@ export class AuthController extends Controller {
   }
 
   @Post('login')
-  public async login(@Body() body: LoginDto): Promise<any> {
+  public async login(@Body() body: LoginDto): Promise<LoginResponseDto> {
     body.email = body.email.trim().toLowerCase();
     return AuthService.login(body);
   }
 
   @Post('refresh')
-  public async refresh(@Body() body: RefreshDto): Promise<any> {
+  public async refresh(@Body() body: RefreshDto): Promise<RefreshResponseDto> {
     return AuthService.refresh(body.refresh_token);
   }
 

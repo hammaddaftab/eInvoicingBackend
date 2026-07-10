@@ -99,3 +99,35 @@ export interface RefreshDto {
    */
   refresh_token: string;
 }
+
+export interface SignupResponseDto {
+  message: string;
+  user_id: number;
+  business_id: number;
+}
+
+export interface VerifyOtpResponseDto {
+  message: string;
+  is_complete: boolean;
+  access_token?: string;
+  refresh_token?: string;
+}
+
+export interface LoginResponseDto {
+  access_token: string;
+  refresh_token: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    business: {
+      id: number;
+      name: string;
+    };
+  };
+}
+
+export interface RefreshResponseDto {
+  access_token: string;
+  refresh_token: string;
+}

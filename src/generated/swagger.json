@@ -7,6 +7,130 @@
 		"requestBodies": {},
 		"responses": {},
 		"schemas": {
+			"MeResponseDto": {
+				"properties": {
+					"id": {
+						"type": "number",
+						"format": "double"
+					},
+					"name": {
+						"type": "string"
+					},
+					"email": {
+						"type": "string"
+					},
+					"phone": {
+						"type": "string"
+					},
+					"is_phone_verified": {
+						"type": "boolean"
+					},
+					"is_email_verified": {
+						"type": "boolean"
+					},
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"roles": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array"
+					},
+					"business": {
+						"properties": {
+							"name": {
+								"type": "string"
+							},
+							"id": {
+								"type": "number",
+								"format": "double"
+							}
+						},
+						"required": [
+							"name",
+							"id"
+						],
+						"type": "object"
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"email",
+					"phone",
+					"is_phone_verified",
+					"is_email_verified",
+					"created_at",
+					"roles",
+					"business"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"UserDto": {
+				"properties": {
+					"id": {
+						"type": "number",
+						"format": "double"
+					},
+					"name": {
+						"type": "string"
+					},
+					"email": {
+						"type": "string"
+					},
+					"phone": {
+						"type": "string"
+					},
+					"is_phone_verified": {
+						"type": "boolean"
+					},
+					"is_email_verified": {
+						"type": "boolean"
+					},
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"email",
+					"phone",
+					"is_phone_verified",
+					"is_email_verified",
+					"created_at"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"UpdateMeResponseDto": {
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"user": {
+						"$ref": "#/components/schemas/UserDto"
+					},
+					"email_verification_sent": {
+						"type": "boolean"
+					},
+					"phone_verification_sent": {
+						"type": "boolean"
+					}
+				},
+				"required": [
+					"message",
+					"user",
+					"email_verification_sent",
+					"phone_verification_sent"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"UpdateMeDto": {
 				"properties": {
 					"name": {
@@ -45,6 +169,28 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"InviteResponseDto": {
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"invitation_id": {
+						"type": "number",
+						"format": "double"
+					},
+					"expires_at": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"message",
+					"invitation_id",
+					"expires_at"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"InviteDto": {
 				"properties": {
 					"email": {
@@ -60,6 +206,55 @@
 				"required": [
 					"email",
 					"role_id"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"AcceptInviteResponseDto": {
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"user": {
+						"properties": {
+							"email": {
+								"type": "string"
+							},
+							"name": {
+								"type": "string"
+							},
+							"id": {
+								"type": "number",
+								"format": "double"
+							}
+						},
+						"required": [
+							"email",
+							"name",
+							"id"
+						],
+						"type": "object"
+					},
+					"tokens": {
+						"properties": {
+							"refresh_token": {
+								"type": "string"
+							},
+							"access_token": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"refresh_token",
+							"access_token"
+						],
+						"type": "object"
+					}
+				},
+				"required": [
+					"message",
+					"user",
+					"tokens"
 				],
 				"type": "object",
 				"additionalProperties": false
@@ -105,6 +300,143 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"UserWithRolesDto": {
+				"properties": {
+					"id": {
+						"type": "number",
+						"format": "double"
+					},
+					"name": {
+						"type": "string"
+					},
+					"email": {
+						"type": "string"
+					},
+					"phone": {
+						"type": "string"
+					},
+					"is_phone_verified": {
+						"type": "boolean"
+					},
+					"is_email_verified": {
+						"type": "boolean"
+					},
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"roles": {
+						"items": {
+							"properties": {
+								"name": {
+									"type": "string"
+								},
+								"id": {
+									"type": "number",
+									"format": "double"
+								}
+							},
+							"required": [
+								"name",
+								"id"
+							],
+							"type": "object"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"email",
+					"phone",
+					"is_phone_verified",
+					"is_email_verified",
+					"created_at",
+					"roles"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"GetUsersResponseDto": {
+				"properties": {
+					"users": {
+						"items": {
+							"$ref": "#/components/schemas/UserWithRolesDto"
+						},
+						"type": "array"
+					},
+					"total": {
+						"type": "number",
+						"format": "double"
+					},
+					"page": {
+						"type": "number",
+						"format": "double"
+					},
+					"limit": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"users",
+					"total",
+					"page",
+					"limit"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"AdminUpdateUserResponseDto": {
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"user": {
+						"properties": {
+							"roles": {
+								"items": {
+									"properties": {
+										"name": {
+											"type": "string"
+										},
+										"id": {
+											"type": "number",
+											"format": "double"
+										}
+									},
+									"required": [
+										"name",
+										"id"
+									],
+									"type": "object"
+								},
+								"type": "array"
+							},
+							"name": {
+								"type": "string"
+							},
+							"id": {
+								"type": "number",
+								"format": "double"
+							}
+						},
+						"required": [
+							"roles",
+							"name",
+							"id"
+						],
+						"type": "object"
+					}
+				},
+				"required": [
+					"message",
+					"user"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"AdminUpdateUserDto": {
 				"properties": {
 					"name": {
@@ -120,6 +452,46 @@
 						"type": "array"
 					}
 				},
+				"type": "object",
+				"additionalProperties": false
+			},
+			"RoleResponseDto": {
+				"properties": {
+					"id": {
+						"type": "number",
+						"format": "double"
+					},
+					"name": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					},
+					"is_system": {
+						"type": "boolean"
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"is_system"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"CreateRoleResponseDto": {
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"role": {
+						"$ref": "#/components/schemas/RoleResponseDto"
+					}
+				},
+				"required": [
+					"message",
+					"role"
+				],
 				"type": "object",
 				"additionalProperties": false
 			},
@@ -141,6 +513,94 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"GetRolesResponseDto": {
+				"properties": {
+					"roles": {
+						"items": {
+							"$ref": "#/components/schemas/RoleResponseDto"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"roles"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"PermissionLevel": {
+				"enum": [
+					"READ",
+					"WRITE",
+					"DELETE",
+					"ALL"
+				],
+				"type": "string"
+			},
+			"RoleDetailResponseDto": {
+				"properties": {
+					"id": {
+						"type": "number",
+						"format": "double"
+					},
+					"name": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					},
+					"is_system": {
+						"type": "boolean"
+					},
+					"permissions": {
+						"items": {
+							"properties": {
+								"permission": {
+									"$ref": "#/components/schemas/PermissionLevel"
+								},
+								"feature": {
+									"type": "string"
+								},
+								"feature_id": {
+									"type": "number",
+									"format": "double"
+								}
+							},
+							"required": [
+								"permission",
+								"feature",
+								"feature_id"
+							],
+							"type": "object"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"is_system",
+					"permissions"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"UpdateRoleResponseDto": {
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"role": {
+						"$ref": "#/components/schemas/RoleResponseDto"
+					}
+				},
+				"required": [
+					"message",
+					"role"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"UpdateRoleDto": {
 				"properties": {
 					"name": {
@@ -156,14 +616,46 @@
 				"type": "object",
 				"additionalProperties": false
 			},
-			"PermissionLevel": {
-				"enum": [
-					"READ",
-					"WRITE",
-					"DELETE",
-					"ALL"
+			"SetPermissionsResponseDto": {
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"role_id": {
+						"type": "number",
+						"format": "double"
+					},
+					"permissions": {
+						"items": {
+							"properties": {
+								"permission": {
+									"$ref": "#/components/schemas/PermissionLevel"
+								},
+								"feature": {
+									"type": "string"
+								},
+								"feature_id": {
+									"type": "number",
+									"format": "double"
+								}
+							},
+							"required": [
+								"permission",
+								"feature",
+								"feature_id"
+							],
+							"type": "object"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"message",
+					"role_id",
+					"permissions"
 				],
-				"type": "string"
+				"type": "object",
+				"additionalProperties": false
 			},
 			"RolePermissionDto": {
 				"properties": {
@@ -198,6 +690,86 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"InvitationDto": {
+				"properties": {
+					"id": {
+						"type": "number",
+						"format": "double"
+					},
+					"email": {
+						"type": "string"
+					},
+					"role": {
+						"properties": {
+							"name": {
+								"type": "string"
+							},
+							"id": {
+								"type": "number",
+								"format": "double"
+							}
+						},
+						"required": [
+							"name",
+							"id"
+						],
+						"type": "object"
+					},
+					"invited_by": {
+						"properties": {
+							"name": {
+								"type": "string"
+							},
+							"id": {
+								"type": "number",
+								"format": "double"
+							}
+						},
+						"required": [
+							"name",
+							"id"
+						],
+						"type": "object"
+					},
+					"is_expired": {
+						"type": "boolean"
+					},
+					"expires_at": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"id",
+					"email",
+					"role",
+					"invited_by",
+					"is_expired",
+					"expires_at",
+					"created_at"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"GetInvitationsResponseDto": {
+				"properties": {
+					"invitations": {
+						"items": {
+							"$ref": "#/components/schemas/InvitationDto"
+						},
+						"type": "array"
+					}
+				},
+				"required": [
+					"invitations"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"Emirate": {
 				"enum": [
 					"ABU_DHABI",
@@ -209,6 +781,65 @@
 					"FUJAIRAH"
 				],
 				"type": "string"
+			},
+			"BusinessResponseDto": {
+				"properties": {
+					"id": {
+						"type": "number",
+						"format": "double"
+					},
+					"name": {
+						"type": "string"
+					},
+					"vat_number": {
+						"type": "string"
+					},
+					"tl_number": {
+						"type": "string"
+					},
+					"emirate": {
+						"$ref": "#/components/schemas/Emirate"
+					},
+					"industry": {
+						"properties": {
+							"name": {
+								"type": "string"
+							},
+							"id": {
+								"type": "number",
+								"format": "double"
+							}
+						},
+						"required": [
+							"name",
+							"id"
+						],
+						"type": "object"
+					}
+				},
+				"required": [
+					"id",
+					"name",
+					"emirate"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"UpdateBusinessResponseDto": {
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"business": {
+						"$ref": "#/components/schemas/BusinessResponseDto"
+					}
+				},
+				"required": [
+					"message",
+					"business"
+				],
+				"type": "object",
+				"additionalProperties": false
 			},
 			"UpdateBusinessDto": {
 				"properties": {
@@ -236,6 +867,28 @@
 						"$ref": "#/components/schemas/Emirate"
 					}
 				},
+				"type": "object",
+				"additionalProperties": false
+			},
+			"SignupResponseDto": {
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"user_id": {
+						"type": "number",
+						"format": "double"
+					},
+					"business_id": {
+						"type": "number",
+						"format": "double"
+					}
+				},
+				"required": [
+					"message",
+					"user_id",
+					"business_id"
+				],
 				"type": "object",
 				"additionalProperties": false
 			},
@@ -308,6 +961,28 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"VerifyOtpResponseDto": {
+				"properties": {
+					"message": {
+						"type": "string"
+					},
+					"is_complete": {
+						"type": "boolean"
+					},
+					"access_token": {
+						"type": "string"
+					},
+					"refresh_token": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"message",
+					"is_complete"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"OtpPurpose.SIGNUP": {
 				"enum": [
 					"signup"
@@ -371,6 +1046,60 @@
 				"type": "object",
 				"additionalProperties": false
 			},
+			"LoginResponseDto": {
+				"properties": {
+					"access_token": {
+						"type": "string"
+					},
+					"refresh_token": {
+						"type": "string"
+					},
+					"user": {
+						"properties": {
+							"business": {
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"id": {
+										"type": "number",
+										"format": "double"
+									}
+								},
+								"required": [
+									"name",
+									"id"
+								],
+								"type": "object"
+							},
+							"email": {
+								"type": "string"
+							},
+							"name": {
+								"type": "string"
+							},
+							"id": {
+								"type": "number",
+								"format": "double"
+							}
+						},
+						"required": [
+							"business",
+							"email",
+							"name",
+							"id"
+						],
+						"type": "object"
+					}
+				},
+				"required": [
+					"access_token",
+					"refresh_token",
+					"user"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
 			"LoginDto": {
 				"properties": {
 					"email": {
@@ -385,6 +1114,22 @@
 				"required": [
 					"email",
 					"password"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"RefreshResponseDto": {
+				"properties": {
+					"access_token": {
+						"type": "string"
+					},
+					"refresh_token": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"access_token",
+					"refresh_token"
 				],
 				"type": "object",
 				"additionalProperties": false
@@ -459,7 +1204,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/MeResponseDto"
+								}
 							}
 						}
 					}
@@ -481,7 +1228,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/UpdateMeResponseDto"
+								}
 							}
 						}
 					}
@@ -559,7 +1308,9 @@
 						"description": "Created",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/InviteResponseDto"
+								}
 							}
 						}
 					}
@@ -596,7 +1347,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/AcceptInviteResponseDto"
+								}
 							}
 						}
 					}
@@ -626,7 +1379,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/GetUsersResponseDto"
+								}
 							}
 						}
 					}
@@ -674,7 +1429,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/UserWithRolesDto"
+								}
 							}
 						}
 					}
@@ -709,7 +1466,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/AdminUpdateUserResponseDto"
+								}
 							}
 						}
 					}
@@ -800,7 +1559,9 @@
 						"description": "Created",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/CreateRoleResponseDto"
+								}
 							}
 						}
 					}
@@ -834,7 +1595,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/GetRolesResponseDto"
+								}
 							}
 						}
 					}
@@ -861,7 +1624,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/RoleDetailResponseDto"
+								}
 							}
 						}
 					}
@@ -896,7 +1661,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/UpdateRoleResponseDto"
+								}
 							}
 						}
 					}
@@ -986,7 +1753,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/SetPermissionsResponseDto"
+								}
 							}
 						}
 					}
@@ -1032,7 +1801,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/GetInvitationsResponseDto"
+								}
 							}
 						}
 					}
@@ -1106,7 +1877,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/BusinessResponseDto"
+								}
 							}
 						}
 					}
@@ -1128,7 +1901,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/UpdateBusinessResponseDto"
+								}
 							}
 						}
 					}
@@ -1164,7 +1939,9 @@
 						"description": "Created",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/SignupResponseDto"
+								}
 							}
 						}
 					}
@@ -1194,7 +1971,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/VerifyOtpResponseDto"
+								}
 							}
 						}
 					}
@@ -1264,7 +2043,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/LoginResponseDto"
+								}
 							}
 						}
 					}
@@ -1294,7 +2075,9 @@
 						"description": "Ok",
 						"content": {
 							"application/json": {
-								"schema": {}
+								"schema": {
+									"$ref": "#/components/schemas/RefreshResponseDto"
+								}
 							}
 						}
 					}

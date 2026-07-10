@@ -52,10 +52,7 @@ export class InvitationService {
     // In a real app, send the rawToken via email (e.g. https://frontend.com/accept-invite?token=rawToken)
     console.log(`[Email Mock] Sent invite to ${email} with token: ${rawToken}`);
 
-    return {
-      invitation_id: invitation.id,
-      expires_at: invitation.expires_at
-    };
+    return invitation;
   }
 
   static async acceptInvite(email: string, businessId: number, token: string, name: string, phone: string, password: string) {
@@ -130,22 +127,14 @@ export class InvitationService {
     }
   }
 
-  static async getInvitations(businessId: number) {
+  static async getInvitations(businessId: number): Promise<Invitation[]> {
     const invitations = await this.inviteRepo.find({
       where: { business: { id: businessId }, accepted_at: null as any },
       relations: { role: true, invited_by: true },
       order: { created_at: 'DESC' }
     });
 
-    return invitations.map(inv => ({
-      id: inv.id,
-      email: inv.email,
-      role: { id: inv.role.id, name: inv.role.name },
-      invited_by: { id: inv.invited_by.id, name: inv.invited_by.name },
-      is_expired: inv.expires_at < new Date(),
-      expires_at: inv.expires_at,
-      created_at: inv.created_at
-    }));
+    return invitations;
   }
 
   static async deleteInvitation(businessId: number, invitationId: number): Promise<void> {

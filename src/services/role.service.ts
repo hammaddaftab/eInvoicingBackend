@@ -28,21 +28,16 @@ export class RoleService {
     }
   }
 
-  static async getRoles(businessId: number) {
+  static async getRoles(businessId: number): Promise<Role[]> {
     const roles = await this.roleRepo.find({
       where: { business: { id: businessId } },
       order: { is_system: 'DESC', name: 'ASC' }
     });
 
-    return roles.map(role => ({
-      id: role.id,
-      name: role.name,
-      description: role.description,
-      is_system: role.is_system
-    }));
+    return roles;
   }
 
-  static async getRole(businessId: number, roleId: number) {
+  static async getRole(businessId: number, roleId: number): Promise<Role> {
     const role = await this.roleRepo.findOne({
       where: { id: roleId, business: { id: businessId } },
       relations: { role_permissions: { feature: true } }
@@ -50,17 +45,7 @@ export class RoleService {
 
     if (!role) throw new AppError(404, 'Role not found');
 
-    return {
-      id: role.id,
-      name: role.name,
-      description: role.description,
-      is_system: role.is_system,
-      permissions: role.role_permissions.map(rp => ({
-        feature_id: rp.feature.id,
-        feature: rp.feature.name,
-        permission: rp.permission
-      }))
-    };
+    return role;
   }
 
   static async updateRole(businessId: number, roleId: number, data: { name?: string; description?: string }) {
@@ -140,14 +125,7 @@ export class RoleService {
         throw new AppError(500, 'Role disappeared during permission update');
       }
 
-      return {
-        role_id: updatedRole.id,
-        permissions: updatedRole.role_permissions.map(rp => ({
-          feature_id: rp.feature.id,
-          feature: rp.feature.name,
-          permission: rp.permission
-        }))
-      };
+      return updatedRole;
     });
   }
 }
