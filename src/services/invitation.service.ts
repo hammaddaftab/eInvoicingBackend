@@ -137,4 +137,39 @@ export class InvitationService {
       };
     });
   }
+
+  static async getInvitations(businessId: number) {
+    const inviteRepo = AppDataSource.getRepository(Invitation);
+    const invitations = await inviteRepo.find({
+      where: { business: { id: businessId }, accepted_at: null as any },
+      relations: { role: true, invited_by: true },
+      order: { created_at: 'DESC' }
+    });
+
+    return {
+      invitations: invitations.map(inv => ({
+        id: inv.id,
+        email: inv.email,
+        role: { id: inv.role.id, name: inv.role.name },
+        invited_by: { id: inv.invited_by.id, name: inv.invited_by.name },
+        is_expired: inv.expires_at < new Date(),
+        expires_at: inv.expires_at,
+        created_at: inv.created_at
+      }))
+    };
+  }
+
+  static async deleteInvitation(businessId: number, invitationId: number) {
+    const inviteRepo = AppDataSource.getRepository(Invitation);
+    const invitation = await inviteRepo.findOne({
+      where: { id: invitationId, business: { id: businessId } }
+    });
+
+    if (!invitation) throw { status: 404, message: 'Invitation not found' };
+    if (invitation.accepted_at) throw { status: 400, message: 'Cannot cancel an accepted invitation' };
+
+    await inviteRepo.remove(invitation);
+
+    return { message: 'Invitation cancelled successfully' };
+  }
 }

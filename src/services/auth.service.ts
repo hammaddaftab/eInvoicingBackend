@@ -197,6 +197,42 @@ export class AuthService {
     }
   }
 
+  static async forgotPassword(email: string) {
+    const userRepo = AppDataSource.getRepository(User);
+    const user = await userRepo.findOne({ where: { email } });
+
+    // Always return 200 to prevent email enumeration
+    const defaultResponse = { message: 'If an account exists, a reset code has been sent.' };
+
+    if (!user) {
+      return defaultResponse;
+    }
+
+    // Generate OTP (OtpService handles logging/sending)
+    await OtpService.createVerification(user, OtpChannel.EMAIL, email, OtpPurpose.RESET_PASSWORD);
+
+    return defaultResponse;
+  }
+
+  static async resetPassword(email: string, code: string, newPassword: string) {
+    const userRepo = AppDataSource.getRepository(User);
+    const user = await userRepo.findOne({ where: { email } });
+
+    if (!user) {
+      throw { status: 400, message: 'Invalid reset request' };
+    }
+
+    // Verify the OTP (this will throw if invalid/expired/too many attempts)
+    await OtpService.verifyOtp(user.id, OtpChannel.EMAIL, OtpPurpose.RESET_PASSWORD, code);
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    user.password = hashedPassword;
+    await userRepo.save(user);
+
+    return { message: 'Password reset successfully' };
+  }
+
   static async resendOtp(data: ResendOtpDTO) {
     const userRepo = AppDataSource.getRepository(User);
     const user = await userRepo.findOne({ where: { id: data.user_id } });

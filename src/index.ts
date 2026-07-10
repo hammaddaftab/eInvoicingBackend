@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 import { AppDataSource } from './data-source';
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
+import invitationRoutes from './routes/invitation.routes';
+import roleRoutes from './routes/role.routes';
+import businessRoutes from './routes/business.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -18,6 +21,9 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/invitations', invitationRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/business', businessRoutes);
 
 app.get('/', (req, res) => {
   res.send('eInvoice Backend API is running.');

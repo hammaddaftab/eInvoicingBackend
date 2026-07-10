@@ -4,6 +4,16 @@ import { validate } from '../middleware/validate';
 import { AuthController } from '../controllers/auth.controller';
 import { Emirate, OtpChannel, OtpPurpose } from '../entities/enums';
 
+export const forgotPasswordSchema = z.object({
+  email: z.email(),
+});
+
+export const resetPasswordSchema = z.object({
+  email: z.email(),
+  code: z.string().length(6),
+  new_password: z.string().min(8),
+});
+
 const router = Router();
 
 export const signupSchema = z.object({
@@ -57,5 +67,7 @@ router.post('/verify-otp', validate(verifyOtpSchema), AuthController.verifyOtp);
 router.post('/resend-otp', validate(resendOtpSchema), AuthController.resendOtp);
 router.post('/login', validate(loginSchema), AuthController.login);
 router.post('/refresh', validate(refreshSchema), AuthController.refresh);
+router.post('/forgot-password', validate(forgotPasswordSchema), AuthController.forgotPassword);
+router.post('/reset-password', validate(resetPasswordSchema), AuthController.resetPassword);
 
 export default router;

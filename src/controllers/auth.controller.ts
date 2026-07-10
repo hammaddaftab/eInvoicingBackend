@@ -40,7 +40,28 @@ export class AuthController {
 
   static async refresh(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await AuthService.refresh(req.body);
+      const { refresh_token } = req.body;
+      const result = await AuthService.refresh(refresh_token);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = req.body;
+      const result = await AuthService.forgotPassword(email);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, code, new_password } = req.body;
+      const result = await AuthService.resetPassword(email, code, new_password);
       res.status(200).json(result);
     } catch (error) {
       next(error);
