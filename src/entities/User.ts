@@ -1,6 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from 'typeorm';
 import { Business } from './Business';
-import { UserRole } from './UserRole';
+import { Role } from './Role';
 
 @Entity('users')
 export class User {
@@ -11,7 +11,11 @@ export class User {
   @JoinColumn({ name: 'business_id' })
   business: Business;
 
-  @ManyToOne(() => User, { nullable: true })
+  @ManyToOne(() => Role, { nullable: false })
+  @JoinColumn({ name: 'role_id' })
+  role: Role;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by' })
   created_by: User;
 
@@ -33,9 +37,21 @@ export class User {
   @Column({ type: 'boolean', default: false })
   is_email_verified: boolean;
 
+  // --- Audit Fields ---
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
-  @OneToMany(() => UserRole, (user_role) => user_role.user)
-  user_roles: UserRole[];
+  @UpdateDateColumn({ type: 'timestamptz' })
+  updated_at: Date;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'updated_by' })
+  updated_by: User;
+
+  @DeleteDateColumn({ type: 'timestamptz' })
+  deleted_at: Date;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'deleted_by' })
+  deleted_by: User;
 }

@@ -2,7 +2,7 @@ import { AppDataSource } from '../data-source';
 import { User } from '../entities/User';
 import { Business } from '../entities/Business';
 import { Role } from '../entities/Role';
-import { UserRole } from '../entities/UserRole';
+
 import { OtpService } from './otp.service';
 import { OtpChannel, OtpPurpose, Emirate } from '../entities/enums';
 import { AppError } from '../utils/AppError';
@@ -53,8 +53,8 @@ export class AuthService {
         const ownerRole = systemRoles.find((r) => r.name === 'OWNER')!;
 
         // 4. Assign OWNER Role
-        const userRole = manager.create(UserRole, { user, role: ownerRole });
-        await manager.save(userRole);
+        user.role = ownerRole;
+        await manager.save(user);
 
         // 5. Generate Signup OTPs for both Email and Phone
         await OtpService.createVerification(user, OtpChannel.PHONE, data.phone, OtpPurpose.SIGNUP);
@@ -79,7 +79,7 @@ export class AuthService {
 
     const user = await this.userRepo.findOne({
       where: isEmail ? { email: data.identifier } : { phone: data.identifier },
-      relations: { business: true, user_roles: { role: true } },
+      relations: { business: true, role: true },
     });
 
     if (!user) throw new AppError(404, 'User not found');
@@ -96,7 +96,7 @@ export class AuthService {
       }
     }
 
-    const roles = user.user_roles.map((ur) => ur.role.name);
+    const roles = user.role ? [user.role.name] : [];
 
     const accessToken = jwt.sign(
       { user_id: user.id, business_id: user.business.id, roles, type: 'access' },
@@ -116,7 +116,7 @@ export class AuthService {
   static async login(data: LoginDto) {
     const user = await this.userRepo.findOne({
       where: { email: data.email },
-      relations: { business: true, user_roles: { role: true } },
+      relations: { business: true, role: true },
     });
 
     if (!user) throw new AppError(401, 'Invalid email or password');
@@ -135,7 +135,7 @@ export class AuthService {
       throw new AppError(403, 'Account not fully verified. New OTPs have been sent to your unverified channels.');
     }
 
-    const roles = user.user_roles.map((ur) => ur.role.name);
+    const roles = user.role ? [user.role.name] : [];
 
     if (roles.length === 0) {
       throw new AppError(403, 'Your account has no assigned roles. Please contact your administrator.');
@@ -182,14 +182,14 @@ export class AuthService {
 
     const user = await this.userRepo.findOne({
       where: { id: decoded.user_id },
-      relations: { business: true, user_roles: { role: true } },
+      relations: { business: true, role: true },
     });
 
     if (!user) {
       throw new AppError(401, 'User no longer exists');
     }
 
-    const roles = user.user_roles.map((ur) => ur.role.name);
+    const roles = user.role ? [user.role.name] : [];
 
     const newAccessToken = jwt.sign(
       { user_id: user.id, business_id: user.business.id, roles, type: 'access' },

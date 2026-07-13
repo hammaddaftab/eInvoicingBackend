@@ -2,7 +2,7 @@ import { AppDataSource } from '../data-source';
 import { Invitation } from '../entities/Invitation';
 import { User } from '../entities/User';
 import { Role } from '../entities/Role';
-import { UserRole } from '../entities/UserRole';
+
 import { AppError } from '../utils/AppError';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
@@ -89,15 +89,10 @@ export class InvitationService {
           phone,
           password: hashedPassword,
           is_email_verified: true,
-          created_by: { id: validInvitation.invited_by.id }
-        });
-        await manager.save(user);
-
-        const userRole = manager.create(UserRole, {
-          user: { id: user.id },
+          created_by: { id: validInvitation.invited_by.id },
           role: { id: validInvitation.role.id }
         });
-        await manager.save(userRole);
+        await manager.save(user);
 
         validInvitation.accepted_at = new Date();
         await manager.save(validInvitation);

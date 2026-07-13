@@ -2,7 +2,7 @@ import * as express from "express";
 import { Route, Get, Patch, Post, Delete, Body, Path, Controller, Tags, Security, Request, Query, SuccessResponse } from 'tsoa';
 import { UserService } from '../services/user.service';
 import { InvitationService } from '../services/invitation.service';
-import { UserDto, UpdateMeDto, UpdateMyPasswordDto, InviteDto, AcceptInviteDto, AdminUpdateUserDto, MeResponseDto, UpdateMeResponseDto, InviteResponseDto, AcceptInviteResponseDto, GetUsersResponseDto, UserWithRolesDto, AdminUpdateUserResponseDto, toMeDto, toUserDto, toUserWithRolesDto } from '../dtos/user.dto';
+import { UserDto, UpdateMeDto, UpdateMyPasswordDto, InviteDto, AcceptInviteDto, AdminUpdateUserDto, MeResponseDto, UpdateMeResponseDto, InviteResponseDto, AcceptInviteResponseDto, GetUsersResponseDto, UserWithRoleDto, AdminUpdateUserResponseDto, toMeDto, toUserDto, toUserWithRoleDto } from '../dtos/user.dto';
 import { z } from 'zod';
 import { ValidateError } from 'tsoa';
 
@@ -90,7 +90,7 @@ export class UserController extends Controller {
   ): Promise<GetUsersResponseDto> {
     const data = await UserService.getUsers(request.user.business_id, page, limit);
     return {
-      users: data.users.map(toUserWithRolesDto),
+      users: data.users.map(toUserWithRoleDto),
       total: data.total,
       page: data.page,
       limit: data.limit
@@ -99,9 +99,9 @@ export class UserController extends Controller {
 
   @Get('{id}')
   @Security('jwt', ['OWNER', 'ADMIN'])
-  public async getUser(@Request() request: express.Request, @Path() id: number): Promise<UserWithRolesDto> {
+  public async getUser(@Request() request: express.Request, @Path() id: number): Promise<UserWithRoleDto> {
     const user = await UserService.getUser(request.user.business_id, id);
-    return toUserWithRolesDto(user);
+    return toUserWithRoleDto(user);
   }
 
   @Patch('{id}')
@@ -118,7 +118,7 @@ export class UserController extends Controller {
       user: {
         id: updatedUser.id,
         name: updatedUser.name,
-        roles: (updatedUser.user_roles || []).map((ur: any) => ({ id: ur.role.id, name: ur.role.name }))
+        role: updatedUser.role ? { id: updatedUser.role.id, name: updatedUser.role.name } : { id: 0, name: '' }
       } 
     };
   }

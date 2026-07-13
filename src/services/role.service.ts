@@ -1,6 +1,7 @@
 import { AppDataSource } from '../data-source';
 import { Role } from '../entities/Role';
-import { UserRole } from '../entities/UserRole';
+import { User } from '../entities/User';
+
 import { RolePermission } from '../entities/RolePermission';
 import { Feature } from '../entities/Feature';
 import { PermissionLevel } from '../entities/enums';
@@ -74,7 +75,7 @@ export class RoleService {
       if (!role) throw new AppError(404, 'Role not found');
       if (role.is_system) throw new AppError(403, 'System roles cannot be deleted');
 
-      const usersCount = await manager.count(UserRole, { where: { role: { id: roleId } } });
+      const usersCount = await manager.count(User, { where: { role: { id: roleId } } });
       if (usersCount > 0) {
         throw new AppError(400, `Cannot delete role: ${usersCount} user(s) are still assigned to it. Reassign them first.`);
       }

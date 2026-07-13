@@ -1,7 +1,8 @@
-import { Entity, ManyToOne, JoinColumn, Column, PrimaryColumn } from 'typeorm';
+import { Entity, ManyToOne, JoinColumn, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { Role } from './Role';
 import { Feature } from './Feature';
 import { PermissionLevel } from './enums';
+import { User } from './User';
 
 @Entity('roles_permissions')
 export class RolePermission {
@@ -21,4 +22,19 @@ export class RolePermission {
 
   @Column({ type: 'enum', enum: PermissionLevel, enumName: 'permissions_enum' })
   permission: PermissionLevel;
+
+  // --- Audit Fields ---
+  @CreateDateColumn({ type: 'timestamptz' })
+  created_at: Date;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'created_by' })
+  created_by: User;
+
+  @UpdateDateColumn({ type: 'timestamptz' })
+  updated_at: Date;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'updated_by' })
+  updated_by: User;
 }

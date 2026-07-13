@@ -6,6 +6,8 @@ import {
   ManyToOne,
   JoinColumn,
   Unique,
+  UpdateDateColumn,
+  DeleteDateColumn
 } from 'typeorm';
 import { Business } from './Business';
 import { User } from './User';
@@ -21,7 +23,7 @@ export class Invitation {
   @JoinColumn({ name: 'business_id' })
   business: Business;
 
-  @ManyToOne(() => User, { nullable: false })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'invited_by' })
   invited_by: User;
 
@@ -41,6 +43,21 @@ export class Invitation {
   @Column({ type: 'timestamptz', nullable: true })
   accepted_at: Date;
 
+  // --- Audit Fields ---
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
+
+  @UpdateDateColumn({ type: 'timestamptz' })
+  updated_at: Date;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'updated_by' })
+  updated_by: User;
+
+  @DeleteDateColumn({ type: 'timestamptz' })
+  deleted_at: Date;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'deleted_by' })
+  deleted_by: User;
 }

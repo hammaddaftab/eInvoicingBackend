@@ -10,17 +10,17 @@ export interface UserDto {
   created_at: Date;
 }
 
-export interface UserWithRolesDto extends UserDto {
-  roles: { id: number; name: string }[];
+export interface UserWithRoleDto extends UserDto {
+  role: { id: number; name: string };
 }
 
 export interface MeResponseDto extends UserDto {
-  roles: string[];
+  role: string;
   business: { id: number; name: string };
 }
 
 export interface GetUsersResponseDto {
-  users: UserWithRolesDto[];
+  users: UserWithRoleDto[];
   total: number;
   page: number;
   limit: number;
@@ -38,7 +38,7 @@ export interface AdminUpdateUserResponseDto {
   user: {
     id: number;
     name: string;
-    roles: { id: number; name: string }[];
+    role: { id: number; name: string };
   };
 }
 
@@ -66,20 +66,17 @@ export function toUserDto(user: User): UserDto {
   };
 }
 
-export function toUserWithRolesDto(user: User): UserWithRolesDto {
+export function toUserWithRoleDto(user: User): UserWithRoleDto {
   return {
     ...toUserDto(user),
-    roles: (user.user_roles || []).map((ur: any) => ({
-      id: ur.role.id,
-      name: ur.role.name
-    }))
+    role: user.role ? { id: user.role.id, name: user.role.name } : { id: 0, name: '' }
   };
 }
 
 export function toMeDto(user: User): MeResponseDto {
   return {
     ...toUserDto(user),
-    roles: (user.user_roles || []).map((ur: any) => ur.role.name),
+    role: user.role ? user.role.name : '',
     business: user.business ? { id: user.business.id, name: user.business.name } : { id: 0, name: '' }
   };
 }
@@ -159,5 +156,5 @@ export interface AdminUpdateUserDto {
    * @maxLength 100
    */
   name?: string;
-  role_ids?: number[];
+  role_id?: number;
 }

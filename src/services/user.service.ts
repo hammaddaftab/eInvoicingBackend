@@ -1,7 +1,7 @@
 import { AppDataSource } from '../data-source';
 import { User } from '../entities/User';
 import { Role } from '../entities/Role';
-import { UserRole } from '../entities/UserRole';
+
 import { OtpService } from './otp.service';
 import { OtpChannel, OtpPurpose } from '../entities/enums';
 import { AppError } from '../utils/AppError';
@@ -15,7 +15,7 @@ export class UserService {
   static async getMe(userId: number) {
     const user = await this.userRepo.findOne({
       where: { id: userId },
-      relations: { business: true, user_roles: { role: true } }
+      relations: { business: true, role: true }
     });
 
     if (!user) throw new AppError(404, 'User not found');
@@ -84,7 +84,7 @@ export class UserService {
   static async getUsers(businessId: number, page: number, limit: number) {
     const [users, total] = await this.userRepo.findAndCount({
       where: { business: { id: businessId } },
-      relations: { user_roles: { role: true } },
+      relations: { role: true },
       skip: (page - 1) * limit,
       take: limit,
       order: { created_at: 'DESC' }
@@ -101,7 +101,7 @@ export class UserService {
   static async getUser(businessId: number, targetUserId: number) {
     const user = await this.userRepo.findOne({
       where: { id: targetUserId, business: { id: businessId } },
-      relations: { user_roles: { role: true } }
+      relations: { role: true }
     });
 
     if (!user) throw new AppError(404, 'User not found');
@@ -122,25 +122,19 @@ export class UserService {
         await manager.save(user);
       }
 
-      if (data.role_ids && data.role_ids.length > 0) {
-        const roles = await manager.find(Role, { where: data.role_ids.map((id: number) => ({ id })) });
-        if (roles.length !== data.role_ids.length) throw new AppError(400, 'Invalid role provided');
-        
-        for (const role of roles) {
-          if (!role.is_system && role.business && role.business.id !== businessId) {
-             throw new AppError(403, `Invalid role ID ${role.id} for this business`);
-          }
+      if (data.role_id) {
+        const role = await manager.findOne(Role, { where: { id: data.role_id } });
+        if (!role) throw new AppError(400, 'Invalid role provided');
+        if (!role.is_system && role.business && role.business.id !== businessId) {
+           throw new AppError(403, 'Invalid role ID for this business');
         }
-
-        await manager.delete(UserRole, { user: { id: targetUserId } });
-        
-        const newRoles = roles.map((r: Role) => manager.create(UserRole, { user: { id: targetUserId }, role: { id: r.id } }));
-        await manager.save(newRoles);
+        user.role = role;
+        await manager.save(user);
       }
 
       const updatedUser = await manager.findOne(User, {
         where: { id: targetUserId },
-        relations: { user_roles: { role: true } }
+        relations: { role: true }
       });
 
       if (!updatedUser) {
@@ -158,12 +152,12 @@ export class UserService {
 
     const targetUser = await this.userRepo.findOne({
       where: { id: targetUserId, business: { id: businessId } },
-      relations: { user_roles: { role: true } }
+      relations: { role: true }
     });
 
     if (!targetUser) throw new AppError(404, 'User not found in your business');
 
-    const isTargetOwner = targetUser.user_roles.some(ur => ur.role.name === 'OWNER');
+    const isTargetOwner = targetUser.role?.name === 'OWNER';
     
     if (isTargetOwner) {
       throw new AppError(403, 'You cannot remove another OWNER from the business');
